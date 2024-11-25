@@ -1,0 +1,107 @@
+library(dplyr)
+library(readxl)
+data <- read_excel("C:/Users/User/OneDrive/Desktop/Università/MAGISTRALE/MTBDA/Progetto/[01]DB Esecuzione penale esterna.xlsx", 
+    na = "-")
+mynewdata <- na.omit(data)
+DATA=mynewdata%>%select(-Region, -Municipality, -Year)
+DATA <- data.frame(lapply(DATA, function(x) as.numeric(as.character(x))))
+data_normalized <- scale(DATA)
+eigen(cov(data_normalized))
+
+
+```
+```{r}
+library(FactoMineR)
+library(factoextra)
+summary(data_normalized)
+head(data_normalized)
+
+
+data.pca <- prcomp(data_normalized,scale=F)
+
+
+### TO VISUALIZE THE VARIANZE EXPLAINED BY EACH COMPONENT
+
+fviz_eig(data.pca, addlabels = TRUE)
+
+# BiPlot of the variables
+fviz_pca_var(data.pca, col.var = "black")
+```
+With the biplot, it is possible to visualize the similarities and dissimilarities 
+between the observations, and understand the impact of each variable on each of the principal components.
+
+```{r}
+#VARIABLE CONTRIBUTION
+fviz_cos2(data.pca, choice = "var", axes = 1:3)
+```
+
+The goal of the third visualization is to determine how much each variable is represented in a given component. Such a quality of representation is called the Cos2 and corresponds to the square cosine, and it is computed using the fviz_cos2 function.
+
+A low value means that the variable is not perfectly represented by that component. 
+A high value, on the other hand, means a good representation of the variable on that component.
+We can combine the two plots into one
+```{r}
+fviz_pca_var(data.pca, col.var = "cos2",
+            gradient.cols = c("black", "orange", "green"),
+            repel = TRUE)
+```
+
+OK...but how we can access this components?
+
+```{r}
+PCA_COMPONENTS<-data.frame(data.pca$x)
+PCA_COMPONENTS$Region<-mynewdata$Region
+PCA_COMPONENTS$Municipality<-mynewdata$Municipality
+PCA_COMPONENTS$Year<-mynewdata$Year
+
+library(ggplot2)
+
+ggplot(PCA_COMPONENTS,aes(x=PC1,y=PC2,color=Region))+
+  geom_point()+
+  theme_minimal()
+```
+
+
+Prova UMAP
+
+```{r}
+
+library(umap)
+library(tidyverse)
+DATA$ID<-as.numeric(rownames(DATA))
+set.seed(142)
+umap_fit <- DATA %>%
+  select(-c(ID))%>% 
+  scale() %>% 
+  umap()
+
+
+umap_df <- umap_fit$layout %>%
+  as.data.frame()%>%
+  rename(UMAP1="V1",
+         UMAP2="V2") %>%
+  mutate(ID=row_number())%>%
+  inner_join(DATA, by="ID")
+
+
+umap_df$Region<-mynewdata$Region
+umap_df %>%
+  ggplot(aes(x = UMAP1, 
+             y = UMAP2, 
+             color = Region))+
+  geom_point()+
+  labs(x = "UMAP1",
+       y = "UMAP2",
+      subtitle = "UMAP plot")+
+  theme_bw()
+
+umap_df %>%
+  ggplot(aes(x = UMAP1, 
+             y = UMAP2, 
+             color = Region))+
+  geom_point()+
+  labs(x = "UMAP1",
+       y = "UMAP2",
+      subtitle = "UMAP plot")+
+  theme_bw()+
+  facet_wrap(~Region)
