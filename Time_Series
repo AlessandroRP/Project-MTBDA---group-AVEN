@@ -1,0 +1,124 @@
+#INITIALIZE
+library(readr)
+library(dplyr)
+library(readxl)
+
+#PCA
+library(FactoMineR)
+library(factoextra)
+
+#UMAP
+library(umap)
+library(tidyverse)
+
+#PLOT
+library(ggplot2)
+
+#TS
+library(forecast)
+
+######################################################################
+
+DATA <- read_excel("C:/Users/Aless/Desktop/Magistrale/I° ANNO/Management Tools for Business Data Analyst/[00]PROJECT/DATASETS/[02]Detenuti italiani e stranieri 1991 - 2024.xlsx")
+DATA <- data.frame(DATA)
+
+#Filtering columns and renaming them
+DATA <- DATA[c(1,2,3,4,5)]
+colnames(DATA)[1] <- "Data_Rilevazione"
+
+#Converting data into numeric and first column into date format
+DATA <- DATA %>%mutate(across(-1, as.numeric))
+DATA[, 1] <- as.Date(DATA[, 1], format = "%Y-%m")
+
+#Plot the data
+ggplot(DATA, aes(x = Data_Rilevazione)) +
+  geom_line(aes(y = Imputati, color = "Imputati"), size = 0.8) +
+  geom_line(aes(y = Condannati, color = "Condannati"), size = 0.8) +
+  geom_line(aes(y = Internati, color = "Internati"), size = 0.8) +
+  geom_line(aes(y = Totale, color = "Totale"), size = 1) +
+  theme_minimal() +
+  ylim(0, 70000) +
+  scale_x_date(date_breaks = "4 years", date_labels = "%Y") +
+  scale_y_continuous(breaks = seq(0, 70000, by = 10000)) +
+  scale_color_manual(values = c("Imputati" = "red", 
+                                "Condannati" = "blue", 
+                                "Internati" = "green", 
+                                "Totale" = "orange"),
+                     breaks = c("Totale", "Condannati", "Imputati", "Internati")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(color = "Category", x = "", y = "Numero di Persone") +
+  theme(legend.position = "bottom")
+
+
+#Creating a TS
+ts_DATA=as.ts(DATA$Total)
+ggtsdisplay(ts_DATA)
+
+ggAcf(ts_DATA,lag.max = 23) +theme_bw()+ylab(label="Totale")+
+  labs(title="Totale")
+ggPacf(ts_DATA,lag.max = 252)+theme_bw()+ylab(label="Totale")+
+  labs(title="Totale") #ARIMA(0,x,4)
+
+ts_DATA <- diff(ts_DATA, differences = 1)
+ggtsdisplay(ts_DATA)
+ggAcf(ts_DATA,lag.max = 23)+theme_bw()+ylab(label="Totale")+
+  labs(title="Differenciated Totale")
+ggPacf(ts_DATA,lag.max = 252)+theme_bw()+ylab(label="Totale")+
+  labs(title="Differenciated Totale")
+
+
+#Linear regression model
+laggedTotals <- dplyr::lag(DATA$Total, n=1)
+DATA$Lag = laggedTotals
+LM <- lm(data=DATA,Totale~laggedTotals)
+summary(LM)
+fitted(LM) #Fitted Value = 12770 + 0.7757 x Lagged Total
+
+LM_predict<-predict(LM)
+DATA[-1, ]<-merge(DATA[-1, ],data.frame(Data_Rilevazione,LM_predict))
+LM_plot<-ggplot(DATA[-1, ],aes(x=Data_Rilevazione))+
+  geom_point(aes(y=Totale))+
+  geom_line(aes(y=Totale),color="black")+
+  geom_point(aes(y=LM_predict),color="red")+
+  geom_line(aes(y=LM_predict),color="red")+
+  theme_minimal()
+LM_plot
+
+
+#ARIMA
+ts_DATA=as.ts(DATA$Total)
+ARIMA_model <- auto.arima(ts_DATA,d=1,stepwise=FALSE,
+                          approximation=FALSE,seasonal=F)
+ARIMA_model$fitted
+ggAcf(ARIMA_model$residuals,lag.max = 252)
+acf(ARIMA_model$residuals) 
+#Residuals have a spike in lag 0, 
+#is it normal and should it not be a concern?
+Box.test(ARIMA_model$residuals, lag = 60, type = "Lj")
+#Since the p-value is very high we fail to reject the null hypothesis.
+#There is no significant autocorrelation in the residuals at the 
+#60 lags tested. Therefore, the residuals appear to behave like white 
+#noise, meaning that the ARIMA model has appropriately captured the 
+#underlying time series structure and the residuals are random with 
+#no remaining patterns.
+
+DATA$ARIMA=fitted(ARIMA_model)
+DATA$Totale
+
+ARIMA_plot<-ggplot(DATA,aes(x=Data_Rilevazione))+
+  geom_point(aes(y=Totale),alpha=0.6)+
+  geom_line(aes(y=Totale,group = 1),color="black",alpha=0.6)+
+  geom_point(aes(y=ARIMA),color="darkred")+
+  geom_line(aes(y=ARIMA,group = 1),color="darkred")+
+  theme_minimal()+
+  xlab(label = "")+
+  ylab(label = "")
+ARIMA_plot
+
+ARIMA_forecast <- forecast(ARIMA_model, h = 5)
+
+autoplot(ARIMA_forecast) + 
+  theme_minimal() + 
+  ggtitle("ARIMA Model Forecast") + 
+  xlab("Time") + 
+  ylab("Total")
