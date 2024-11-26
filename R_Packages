@@ -1,0 +1,13 @@
+library(dplyr)
+library(readxl)
+
+#PCA
+library(FactoMineR)
+library(factoextra)
+
+#UMAP
+library(umap)
+library(tidyverse)
+
+#PLOT
+library(ggplot2)
