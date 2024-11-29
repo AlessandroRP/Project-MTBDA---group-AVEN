@@ -167,7 +167,7 @@ K-Mean Clustering
 ```{r}
 
 # Selezioniamo le PCA
-pca_kmeans <- pca_data %>% select(-Region, -Municipality)
+pca_kmeans <- pca_data %>% select(-Region, -Municipality, -Dim.3, -Dim.4, -Dim.5)
 
 # Verifica numero ottimale di cluster tramite silhouette
 fviz_nbclust(pca_kmeans, kmeans, method = "wss")
@@ -275,7 +275,7 @@ Hierarchical Clustering
 ```{r}
 
 # Selezioniamo le PCA
-pca_hierarchical <- pca_data %>% select(-Region, -Municipality)
+pca_hierarchical <- pca_data %>% select(-Region, -Municipality, -Dim.3, -Dim.4, -Dim.5)
 
 # Definiamo linkage methods
 m <- c( "average", "single", "complete", "ward")
