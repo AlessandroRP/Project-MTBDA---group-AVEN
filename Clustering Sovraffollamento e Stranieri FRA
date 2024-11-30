@@ -1,0 +1,308 @@
+---
+title: "R Notebook"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+Data preparation
+```{r}
+
+options(scipen = 99999999)
+library(cluster)
+library(ComplexUpset)
+library(readr)
+library(readxl)
+library(ggplot2)
+library(dplyr)
+library(FactoMineR)
+library(factoextra)
+library(tidyr)
+library(dbscan)
+library(reshape2)
+library(plotly)
+# ~
+
+# Caricamento del file Excel
+data <- read_excel("C:/Users/User/OneDrive/Desktop/Università/MAGISTRALE/MTBDA/Progetto/[03]Detenuti italiani e stranieri al 31 dicembre 2023.xlsx")
+
+# Filtraggio colonne 
+data <- data[c(1,2,5,7)]
+
+# Selezione delle variabili numeriche
+data_numeric <- data %>% select(-`Regione Di Detenzione`, - `Sigla Provincia`)
+
+# Sostituzione dei NA con la media delle colonne
+data_cleaned <- data_numeric %>%
+  mutate(across(everything(), ~ ifelse(is.na(.), 0, .)))
+
+# Standardizzazione delle variabili numeriche
+data_scaled <- scale(data_cleaned)
+
+# Creazione DataFrame
+df <- as.data.frame(data_scaled)
+
+# Aggiunta delle variabili Regione Di Detenzione e Sigla Provincia
+df$Regione <- data$`Regione Di Detenzione`
+df$Provincia <- data$`Sigla Provincia`
+
+```
+
+
+Data visual
+```{r}
+
+# Andiamo a mettere i colori alle occorrenze delle varie regioni
+ggplot(df, aes(x = `Percentuale Sovraffollamento`, y = `Percentuale stranieri`, color = Regione)) +
+  geom_point(size = 3) +
+  theme_minimal() +
+  labs(title = "Proiezione con regioni colorate (palette personalizzata)",
+       x = "Percentuale Sovraffollamento", y = "Percentuale stranieri") +
+  scale_color_manual(values = c(
+    "red", "blue", "green", "orange", "purple", "brown", "pink", "cyan", "yellow", "black",
+    "darkred", "darkblue", "darkgreen", "gold", "violet", "chocolate", "turquoise", "gray", "darkorange", "navy"
+  ))
+
+# Vediamo se c'è una correlazine in base alla posizione territoriale (Nord, Sud , Centro)
+# Calcola i centroidi delle regioni
+region_means <- df %>%
+  group_by(Regione) %>%
+  summarise('Media di Percentuale Sovraffollamento' = mean(`Percentuale Sovraffollamento`), 'Media di Percentuale Stranieri' = mean(`Percentuale stranieri`))
+# Visualizza i centroidi per verifica
+print(region_means)
+
+```
+
+
+K-Mean Clustering
+```{r}
+
+# Selezioniamo le variabili
+df_kmeans <- df %>% select(-Regione, -Provincia)
+
+# Verifica numero ottimale di cluster tramite silhouette
+fviz_nbclust(df_kmeans, kmeans, method = "wss")
+
+km.res <- kmeans(df_kmeans, 2)
+sil <- silhouette(km.res$cluster, dist(df_kmeans))
+fviz_silhouette(sil)
+
+km.res <- kmeans(df_kmeans, 3)
+sil <- silhouette(km.res$cluster, dist(df_kmeans))
+fviz_silhouette(sil)
+
+km.res <- kmeans(df_kmeans, 4)
+sil <- silhouette(km.res$cluster, dist(df_kmeans))
+fviz_silhouette(sil)
+
+km.res <- kmeans(df_kmeans, 8)
+sil <- silhouette(km.res$cluster, dist(df_kmeans))
+fviz_silhouette(sil)
+
+km.res.2 <- kmeans(df_kmeans, 4)
+
+fviz_cluster(km.res.2, data = df_kmeans)+theme_minimal()
+
+# Troviamo la media di ogni cluster
+aggregate(df_kmeans, by=list(cluster=km.res.2$cluster), mean)
+
+final_data <- cbind(df_kmeans, Cluster = km.res.2$cluster)
+
+```
+
+
+Esempi di grafici interpretativi K-Mean Clustering
+```{r}
+
+# Prima di tutto, aggiungiamo la colonna dei cluster al dataset per poter fare le visualizzazioni
+df$Cluster <- km.res.2$cluster
+
+# 1. Grafico della distribuzione dei cluster nelle prime due componenti principali
+ggplot(df, aes(x = `Percentuale Sovraffollamento`, y = `Percentuale stranieri`, color = as.factor(Cluster))) +
+  geom_point(size = 3) +
+  theme_minimal() +
+  labs(title = "Distribuzione dei Cluster",
+       x = "Percentuale Sovraffollamento", y = "Percentuale Stranieri", color = "Cluster")
+
+# 2. Grafico dei cluster suddivisi per Regione
+ggplot(df, aes(x = `Percentuale Sovraffollamento`, y = `Percentuale stranieri`, color = Regione)) +
+  geom_point(aes(shape = as.factor(Cluster)), size = 3) +
+  theme_minimal() +
+  labs(title = "Distribuzione dei Cluster Suddivisi per Regione",
+       x = "Percentuale Sovraffollamento", y = "Percentuale Stranieri", color = "Regione", shape = "Cluster") +
+  scale_color_manual(values = c(
+    "red", "blue", "green", "orange", "purple", "brown", "pink", "cyan", "yellow", "black",
+    "darkred", "darkblue", "darkgreen", "gold", "violet", "chocolate", "turquoise", "gray", "darkorange", "navy"
+  ))
+
+# 3. Boxplot dei cluster per variabili specifiche, suddivisi per Regione
+ggplot(df, aes(x = as.factor(Cluster), y = `Percentuale Sovraffollamento`, fill = as.factor(Cluster))) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "Distribuzione per Cluster: Sovraffollamento",
+       x = "Cluster", y = "Sovraffollamento") +
+  scale_fill_manual(values = c("lightblue", "lightgreen", "lightcoral", "gray"))
+
+# 4. Grafico a barre della media di una variabile per ciascun cluster, diviso per Regione
+aggregate_data <- df %>%
+  group_by(Cluster, Regione) %>%
+  summarise(SovraffollamentoMedio = mean(`Percentuale Sovraffollamento`))
+
+ggplot(aggregate_data, aes(x = Regione, y = SovraffollamentoMedio, fill = as.factor(Cluster))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_minimal() +
+  labs(title = "Media Percentuale Sovraffollamento per Regione e Cluster",
+       x = "Regione", y = "Percentuale Sovraffollamento") +
+  scale_fill_manual(values = c("lightblue", "lightgreen", "lightcoral", "gray"))
+
+```
+
+
+Hierarchical Clustering
+```{r}
+
+# Selezioniamo le variabili
+df_hierarchical <- df %>% select(-Regione, -Provincia)
+
+# Definiamo linkage methods
+m <- c( "average", "single", "complete", "ward")
+names(m) <- c( "average", "single", "complete", "ward")
+
+# Function to compute agglomerative coefficient
+ac <- function(x) {
+  agnes(df_hierarchical, method = x)$ac
+}
+
+# Calcoliamo agglomerative coefficient per ogni clustering linkage method
+sapply(m, ac)
+
+# WARD SEEMS THE BEST IN AGGLOMERATIVE COEFFICIENT
+
+# Perform hierarchical clustering using Ward's minimum variance
+clust <- agnes(df_hierarchical, method = "ward")
+
+# Produce dendrogram
+pltree(clust, cex = 0.6, hang = -1, main = "Dendrogram")
+
+# NOW WE NEED TO SELECT THE NUMBER OF CLUSTER (SIMILAR TO THE K IN THE K MEANS)
+# WE USE THE GAP STATISTICS
+
+# Calculate gap statistic for each number of clusters (up to 5 clusters)
+gap_stat <- clusGap(df_hierarchical, FUN = hcut, nstart = 25, K.max = 5, B = 50)
+
+# Produce plot of clusters vs. gap statistic
+fviz_gap_stat(gap_stat)
+
+# THE HIGHEST GAP STASTISTICS IS IN K=3
+
+# Compute distance matrix
+d <- dist(df_hierarchical, method = "euclidean")
+final_clust <- hclust(d, method = "ward.D2" )
+groups <- cutree(final_clust, k=3)
+plot(final_clust)
+rect.hclust(final_clust, k = 3, border = "green")
+
+df_hierarchical$Regione <- data$`Regione Di Detenzione`
+df_hierarchical$Provincia <- data$`Sigla Provincia`
+
+final_data <- cbind(df_hierarchical, cluster = groups)
+aggregate(final_data, by=list(cluster=final_data$cluster), mean)
+
+ggplot(final_data) +
+  aes(x = `Percentuale Sovraffollamento`, y = `Percentuale stranieri`, colour = as.factor(cluster)) +
+  geom_point(shape = "circle", size = 1.5) +
+  theme_minimal()
+
+# Crea il grafico con ggplot2, colorando in base alla regione
+ggplot(final_data, aes(x = `Percentuale Sovraffollamento`, y = `Percentuale stranieri`, color = Regione)) +
+  geom_point(shape = "circle", size = 1.5) +
+  theme_minimal() +
+  labs(title = "Proiezione delle osservazioni colorata per regione",
+       x = "Percentuale Sovraffollamento", y = "Percentuale Stranieri") +
+  scale_color_manual(values = c(
+    "red", "blue", "green", "orange", "purple", "brown", "pink", "cyan", "yellow", 
+    "black", "darkred", "darkblue", "darkgreen", "gold", "violet", "chocolate", 
+    "turquoise", "gray", "darkorange", "navy"
+  )) +
+  theme(legend.title = element_blank())  # Rimuove il titolo della legenda
+
+```
+
+
+DBScan Clustering
+```{r}
+
+# Selezioniamo le variabili
+df_dbscan <- df %>% select(-Regione, -Provincia)
+
+# Esegui il clustering DBSCAN
+# Parametri eps e minPts devono essere scelti con attenzione (eps è la distanza massima per la vicinanza)
+# minPts è il numero minimo di punti per formare un cluster
+
+# Selection of minpts: log(n) ---> log(189) = 5.2
+# Selection of EPS using k=datasetdimension + 1
+
+kNNdistplot(df_dbscan, k = 3)
+abline(h=0.305, col = "red", lty=2)
+
+dbscan_result <- dbscan(df_dbscan, eps = 0.305, minPts = 5)
+dbscan_result
+
+hullplot(x = df_dbscan, cl = dbscan_result) # grafico delle aree convesse
+
+final_data=cbind(df_dbscan, Cluster=dbscan_result$cluster)
+
+# Visualizza i cluster
+table(dbscan_result$cluster)
+
+# Crea una mappa dei cluster (colorata in base al cluster)
+ggplot(df, aes(x = `Percentuale Sovraffollamento`, y = `Percentuale stranieri`, color = factor(dbscan_result$cluster))) +
+  geom_point() +
+  labs(title = "DBSCAN Clustering", color = "Cluster") +
+  theme_minimal()
+
+# Se vuoi aggiungere le informazioni sui cluster ai dati originali
+df$DBSCAN_Cluster <- dbscan_result$cluster
+
+# Visualizza i primi 6 dati con cluster assegnato
+head(df)
+
+```
+
+
+Esempi di grafici interpretativi su DBScan Clustering
+```{r}
+
+# Contare il numero di regioni per cluster
+cluster_counts <- df %>%
+  group_by(DBSCAN_Cluster, Regione) %>%
+  summarise(Count = n()) %>%
+  filter(DBSCAN_Cluster != 0) # Ignora il cluster di rumore (0)
+
+# Grafico a barre per distribuzione delle regioni nei cluster
+ggplot(cluster_counts, aes(x = factor(DBSCAN_Cluster), y = Count, fill = Regione)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Distribuzione delle Regioni nei Cluster", x = "Cluster", y = "Numero di Occorrenze") +
+  scale_fill_brewer(palette = "Paired") +
+  theme_minimal()
+
+# Calcolo delle medie delle variabili numeriche per cluster e regione
+cluster_summary <- df %>%
+  group_by(DBSCAN_Cluster, Regione) %>%
+  summarise(across(starts_with("Perc"), mean, na.rm = TRUE)) %>%
+  filter(DBSCAN_Cluster != 0)
+
+# Converti in formato lungo per creare una heatmap
+heatmap_data <- cluster_summary %>%
+  pivot_longer(cols = starts_with("Perc"), names_to = "Dimension", values_to = "MeanValue")
+
+# Heatmap
+ggplot(heatmap_data, aes(x = Regione, y = Dimension, fill = MeanValue)) +
+  geom_tile(color = "white") +
+  facet_wrap(~ DBSCAN_Cluster, ncol = 1) +
+  scale_fill_gradient(low = "blue", high = "red") +
+  labs(title = "Heatmap dei Cluster per Regione e Variabili", x = "Regione", y = "Dimensione", fill = "Valore Medio") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
