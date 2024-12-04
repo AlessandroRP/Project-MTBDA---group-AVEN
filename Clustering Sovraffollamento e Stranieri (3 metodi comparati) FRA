@@ -24,7 +24,7 @@ library(plotly)
 # ~
 
 # Caricamento del file Excel
-data <- read_excel("C:/Users/User/OneDrive/Desktop/Università/MAGISTRALE/MTBDA/Progetto/[03]Detenuti italiani e stranieri al 31 dicembre 2023.xlsx")
+data <- read_excel("[03]Detenuti italiani e stranieri al 31 dicembre 2023.xlsx")
 
 # Filtraggio colonne 
 data <- data[c(1,2,5,7)]
@@ -53,7 +53,7 @@ Data visual
 ```{r}
 
 # Andiamo a mettere i colori alle occorrenze delle varie regioni
-ggplot(df, aes(x = `Percentuale Sovraffollamento`, y = `Percentuale stranieri`, color = Regione)) +
+ggplot(df, aes(x = `Percentuale Sovraffollamento`, y = `Percentuale Stranieri`, color = Regione)) +
   geom_point(size = 3) +
   theme_minimal() +
   labs(title = "Proiezione con regioni colorate (palette personalizzata)",
@@ -67,7 +67,7 @@ ggplot(df, aes(x = `Percentuale Sovraffollamento`, y = `Percentuale stranieri`, 
 # Calcola i centroidi delle regioni
 region_means <- df %>%
   group_by(Regione) %>%
-  summarise('Media di Percentuale Sovraffollamento' = mean(`Percentuale Sovraffollamento`), 'Media di Percentuale Stranieri' = mean(`Percentuale stranieri`))
+  summarise('Media di Percentuale Sovraffollamento' = mean(`Percentuale Sovraffollamento`), 'Media di Percentuale Stranieri' = mean(`Percentuale Stranieri`))
 # Visualizza i centroidi per verifica
 print(region_means)
 
@@ -118,14 +118,14 @@ Esempi di grafici interpretativi K-Mean Clustering
 df$Cluster <- km.res.2$cluster
 
 # 1. Grafico della distribuzione dei cluster nelle prime due componenti principali
-ggplot(df, aes(x = `Percentuale Sovraffollamento`, y = `Percentuale stranieri`, color = as.factor(Cluster))) +
+ggplot(df, aes(x = `Percentuale Sovraffollamento`, y = `Percentuale Stranieri`, color = as.factor(Cluster))) +
   geom_point(size = 3) +
   theme_minimal() +
   labs(title = "Distribuzione dei Cluster",
        x = "Percentuale Sovraffollamento", y = "Percentuale Stranieri", color = "Cluster")
 
 # 2. Grafico dei cluster suddivisi per Regione
-ggplot(df, aes(x = `Percentuale Sovraffollamento`, y = `Percentuale stranieri`, color = Regione)) +
+ggplot(df, aes(x = `Percentuale Sovraffollamento`, y = `Percentuale Stranieri`, color = Regione)) +
   geom_point(aes(shape = as.factor(Cluster)), size = 3) +
   theme_minimal() +
   labs(title = "Distribuzione dei Cluster Suddivisi per Regione",
@@ -158,7 +158,7 @@ ggplot(aggregate_data, aes(x = Regione, y = SovraffollamentoMedio, fill = as.fac
 # 5. Grafico a barre della media di presenza stranieri per ciascun cluster, diviso per Regione
 aggregate_data <- df %>%
   group_by(Cluster, Regione) %>%
-  summarise(PercentualeStranieriMedia = mean(`Percentuale stranieri`))
+  summarise(PercentualeStranieriMedia = mean(`Percentuale Stranieri`))
 
 ggplot(aggregate_data, aes(x = Regione, y = PercentualeStranieriMedia, fill = as.factor(Cluster))) +
   geom_bar(stat = "identity", position = "dodge") +
@@ -221,12 +221,12 @@ final_data <- cbind(df_hierarchical, cluster = groups)
 aggregate(final_data, by=list(cluster=final_data$cluster), mean)
 
 ggplot(final_data) +
-  aes(x = `Percentuale Sovraffollamento`, y = `Percentuale stranieri`, colour = as.factor(cluster)) +
+  aes(x = `Percentuale Sovraffollamento`, y = `Percentuale Stranieri`, colour = as.factor(cluster)) +
   geom_point(shape = "circle", size = 1.5) +
   theme_minimal()
 
 # Crea il grafico con ggplot2, colorando in base alla regione
-ggplot(final_data, aes(x = `Percentuale Sovraffollamento`, y = `Percentuale stranieri`, color = Regione)) +
+ggplot(final_data, aes(x = `Percentuale Sovraffollamento`, y = `Percentuale Stranieri`, color = Regione)) +
   geom_point(shape = "circle", size = 1.5) +
   theme_minimal() +
   labs(title = "Proiezione delle osservazioni colorata per regione",
