@@ -152,6 +152,7 @@ plot_loadings(loading_pca1, 1)
 plot_loadings(loading_pca2, 2)
 plot_loadings(loading_pca3, 3)
 
+# COSA SUCCEDE? ABBIAMO NELLA PCA 2 SOLAMENTE LA VAR ANNO MOLTO RAPPRESENTATIVA MENTRE NELLA PCA 3 ANCHE SE SPIEGA MENO VARIANZA, è CARATTERIZZATA DA PIù VARIABILI (DA CHIEDERE)
 
 # Vediamo se c'è una correlazine in base alla posizione territoriale (Nord, Sud , Centro)
 # Calcola i centroidi delle regioni
