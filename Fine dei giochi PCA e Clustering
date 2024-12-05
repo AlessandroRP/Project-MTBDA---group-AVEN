@@ -21,6 +21,7 @@ library(tidyr)
 library(dbscan)
 library(reshape2)
 library(plotly)
+library(RColorBrewer)
 # ~
 
 # Caricamento del file Excel
