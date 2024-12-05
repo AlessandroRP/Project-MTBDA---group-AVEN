@@ -220,12 +220,35 @@ fviz_silhouette(sil)
 
 km.res.2 <- kmeans(pca_kmeans, 3)
 
-fviz_cluster(km.res.2, data = pca_kmeans)+theme_minimal()
+# Modifica i nomi dei cluster
+km.res.2$cluster <- factor(km.res.2$cluster, 
+                           levels = c(1, 2, 3), 
+                           labels = c("MEDIO", "BASSO" , "ALTO"))
+
+# Definisci i colori personalizzati per i cluster
+cluster_colors <- c("BASSO" = "lightcoral", "MEDIO" = "#FFF5A1", "ALTO" = "lightgreen")
+
+# Visualizza il grafico con i cluster rinominati e i colori personalizzati
+fviz_cluster(km.res.2, data = pca_kmeans, 
+             geom = "point", 
+             label = TRUE, 
+             palette = cluster_colors) +
+  theme_minimal() +
+  labs(title = "Distribuzione dei Cluster con Colorazione Personalizzata")
 
 # Troviamo la media di ogni cluster
 aggregate(pca_kmeans, by=list(cluster=km.res.2$cluster), mean)
 
 final_data_kmeans <- cbind(pca_kmeans, Cluster = km.res.2$cluster)
+
+# Modifica la colonna Cluster con nomi descrittivi
+final_data_kmeans <- final_data_kmeans %>%
+  mutate(Cluster = case_when(
+    Cluster == 1 ~ "MEDIO",  # Se il Cluster è 1, diventa "MEDIO"
+    Cluster == 2 ~ "BASSO",  # Se il Cluster è 2, diventa "BASSO"
+    Cluster == 3 ~ "ALTO",   # Se il Cluster è 3, diventa "ALTO"
+    TRUE ~ as.character(Cluster)  # Mantieni il valore originale se non è 1, 2, o 3
+  ))
 
 ```
 
@@ -302,7 +325,8 @@ final_data_kmeans$Year <- pca_data$Year
 ggplot(final_data_kmeans, aes(x = Region, fill = as.factor(Cluster))) +
   geom_bar(position = "dodge") +
   labs(title = "Distribuzione dei Cluster per Regione",
-       x = "Regione", y = "Conteggio", fill = "Cluster") +
+       x = "Regione", y = "Conteggio", fill = "Cluster") + 
+  scale_fill_manual(values = c("BASSO" = "lightcoral", "MEDIO" = "#FFF5A1", "ALTO" = "lightgreen")) +
   theme_minimal()
 
 # 2. Heatmap: Volume Sistema Penale Esterno per Regione e Anno
@@ -320,11 +344,13 @@ p <- ggplot(final_data_kmeans, aes(x=Year, y=`Volume Sistema Penale Esterno`, co
 ggplotly(p)
 
 # 4. Grafico della distribuzione dei cluster nelle prime due componenti principali
-ggplot(final_data_kmeans, aes(x = `Volume Sistema Penale Esterno` , y = `Preferenza Soluzioni Riabilitative Moderne`, color = as.factor(Cluster))) +
+ggplot(final_data_kmeans, aes(x = `Volume Sistema Penale Esterno`, y = `Preferenza Soluzioni Riabilitative Moderne`, color = as.factor(Cluster))) +
   geom_point(size = 3) +
   theme_minimal() +
   labs(title = "Distribuzione dei Cluster sulle Prime Due Componenti Principali",
-       x = "Volume Sistema Penale Esterno", y = "Preferenza Soluzioni Riabilitative Moderne", color = "Cluster")
+       x = "Volume Sistema Penale Esterno", y = "Preferenza Soluzioni Riabilitative Moderne", color = "Cluster") +
+  scale_color_manual(values = c("BASSO" = "lightcoral", "MEDIO" = "#FFF5A1", "ALTO" = "lightgreen"))
+
 
 # 5. Boxplot dei cluster per PCA 1, suddivisi per Regione
 ggplot(final_data_kmeans, aes(x = as.factor(Cluster), y = `Volume Sistema Penale Esterno`, fill = as.factor(Cluster))) +
@@ -332,7 +358,7 @@ ggplot(final_data_kmeans, aes(x = as.factor(Cluster), y = `Volume Sistema Penale
   theme_minimal() +
   labs(title = "Distribuzione per Cluster: Dimensione 1",
        x = "Cluster", y = "Volume Sistema Penale Esterno") +
-  scale_fill_manual(values = c("lightblue", "lightgreen", "lightcoral"))
+  scale_fill_manual(values = c("lightgreen", "lightcoral", "#FFF5A1"))
 
 # 6. Grafico a barre della media di PC1 per ciascun cluster, diviso per Regione
 aggregate_data <- final_data_kmeans %>%
@@ -344,7 +370,7 @@ ggplot(aggregate_data, aes(x = Region, y = Dimensione1, fill = as.factor(Cluster
   theme_minimal() +
   labs(title = "Media di Volume Sistema Penale Esterno per Regione e Cluster",
        x = "Regione", y = "Volume Sistema Penale Esterno") +
-  scale_fill_manual(values = c("lightblue", "lightgreen", "lightcoral"))
+  scale_fill_manual(values = c("lightgreen", "lightcoral", "#FFF5A1"))
 
 # 7. Andamento Media di Volume Sistema Penale Esterno per Anno e Cluster
 aggregate_year <- final_data_kmeans %>%
@@ -355,7 +381,7 @@ ggplot(aggregate_year, aes(x = as.factor(Year), y = Dimensione1, fill = as.facto
   geom_bar(stat = "identity", position = "dodge") +
   theme_minimal() +
   labs(title = "Media di Volume Sistema Penale Esterno per Anno e Cluster", x = "Anno", y = "Volume Sistema Penale Esterno") +
-  scale_fill_manual(values = c("lightblue", "lightgreen", "lightcoral"))
+  scale_fill_manual(values = c("lightgreen", "lightcoral", "#FFF5A1"))
 
 # 8. Performance delle regioni e municipalità sulle dimensioni 1 e 2 per Anno
 performance_by_region_municipality_cluster <- final_data_kmeans %>%
@@ -395,12 +421,15 @@ animated_plot
 kmeans_regions <- kmeans(region_means[, c("Dim1_mean", "Dim2_mean")], centers = 3)
 # Aggiungi i cluster ai dati delle regioni
 region_means$Cluster <- as.factor(kmeans_regions$cluster)
+# Cambio nome Cluster
+region_means$Cluster <- factor(region_means$Cluster, levels = c(1, 2, 3), labels = c("ALTO", "BASSO", "MEDIO"))
 ggplot(region_means, aes(x = Dim1_mean, y = Dim2_mean, color = Cluster, label = Region)) +
   geom_point(size = 5) +
   geom_text(vjust = -0.5) +
   theme_minimal() +
   labs(title = "Cluster delle regioni nello spazio PCA",
-       x = "Volume Sistema Penale Esterno", y = "Preferenza Soluzioni Riabilitative Moderne")
+       x = "Volume Sistema Penale Esterno", y = "Preferenza Soluzioni Riabilitative Moderne") +
+  scale_color_manual(values = c("ALTO" = "lightgreen", "MEDIO" = "#FFF5A1", "BASSO" = "lightcoral"))
 # Aggiungi la macro-area geografica (Nord, Centro, Sud)
 region_means$MacroArea <- case_when(
   region_means$Region %in% c("Lombardia", "Veneto", "Piemonte", "Liguria", "Emilia-Romagna", "Trentino-Alto Adige", "Friuli Venezia Giulia", "Valle d'Aosta") ~ "Nord",
@@ -416,31 +445,41 @@ ggplot(region_means, aes(x = Dim1_mean, y = Dim2_mean, color = MacroArea, shape 
        x = "PCA 1", y = "PCA 2")
 
 # 10. Distribuzione dei comuni per Regione e Cluster (Anno 2023)
+# Filtra i dati per l'anno 2023
 interactive_data <- final_data_kmeans %>%
-  filter(Year == 2023) %>%  # Filtra solo l'anno 2023
-  select(Municipality, Region, Cluster, `Volume Sistema Penale Esterno`, `Preferenza Soluzioni Riabilitative Moderne`)  # Manteniamo solo le colonne necessarie
-# Genera una palette personalizzata per il numero di regioni
-  library(RColorBrewer)
-  region_colors <- colorRampPalette(brewer.pal(8, "Set2"))(length(unique(interactive_data$Region)))
-# Creiamo il grafico interattivo con plotly
-interactive_plot <- plot_ly(interactive_data, 
+  filter(Year == 2023) %>%
+  select(Municipality, Region, Cluster, `Volume Sistema Penale Esterno`, `Preferenza Soluzioni Riabilitative Moderne`)
+
+# Crea una palette di colori per le regioni
+region_colors <- colorRampPalette(brewer.pal(9, "Set1"))(length(unique(interactive_data$Region)))
+
+# Assegna simboli ai cluster
+interactive_data$symbol_cluster <- factor(interactive_data$Cluster, 
+                                           levels = c("BASSO", "MEDIO", "ALTO"),
+                                           labels = c("triangle-up", "square", "circle"))
+
+# Crea il grafico interattivo
+interactive_plot <- plot_ly(data = interactive_data, 
                             x = ~`Volume Sistema Penale Esterno`, 
                             y = ~`Preferenza Soluzioni Riabilitative Moderne`, 
-                            color = ~Region,
+                            color = ~Region, 
                             colors = region_colors,
-                            symbol = ~as.factor(Cluster), 
+                            symbol = ~symbol_cluster, 
                             text = ~paste("Comune:", Municipality, 
                                           "<br>Regione:", Region, 
-                                          "<br>Cluster:", Cluster), 
-                            hoverinfo = "text",  # Mostra le informazioni al passaggio del mouse
+                                          "<br>Cluster:", Cluster),
+                            hoverinfo = "text",  
                             type = 'scatter', 
                             mode = 'markers', 
                             marker = list(size = 10)) %>%
   layout(title = "Distribuzione dei comuni per Regione e Cluster (Anno 2023)",
          xaxis = list(title = "Volume Sistema Penale Esterno"),
          yaxis = list(title = "Preferenza Soluzioni Riabilitative Moderne"),
-         legend = list(title = list(text = "Regioni e Cluster")))
-# Visualizza il grafico interattivo
+         legend = list(title = list(text = "Colori per Regione e Simboli per Cluster"),
+                       itemsizing = "constant"),
+         showlegend = TRUE)
+
+# Visualizza il grafico
 interactive_plot
 
 ```
