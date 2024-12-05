@@ -1,8 +1,10 @@
 ---
-output: html_document
+title: "R Notebook"
+output: html_notebook
 editor_options: 
   chunk_output_type: console
 ---
+
 Data preparation
 ```{r}
 
@@ -22,7 +24,7 @@ library(plotly)
 # ~
 
 # Caricamento del file Excel
-data <- read_excel("C:/Users/volan/OneDrive - uniroma1.it/Università/Management Tools for business data analyst/Progetto/Excel/DB Esecuzione penale esterna.xlsx", na= '-')
+data <- read_excel("[01]DB Esecuzione penale esterna.xlsx", na= '-')
 
 # Sostituzione valori da stringa a numerici
 data$"In carico all'inizio dell'anno da periodi precedenti" <- as.numeric(data$"In carico all'inizio dell'anno da periodi precedenti")
@@ -56,13 +58,14 @@ head(data[, c(utilita_cols, "Lavoro_pubblica_utilita_totale")])
 data <- data[c(1,2,3,4,5,6,7,8,15,19,20)]
 
 # Selezione delle variabili numeriche
-data_numeric <- data %>% select(-Region, -Municipality)
+data_numeric <- data %>% select(-Region, -Municipality, -Year)
 
 # Sostituzione dei NA con la media delle colonne
 data_cleaned <- data_numeric %>%
   mutate(across(everything(), ~ ifelse(is.na(.), mean(., na.rm = TRUE), .)))
 
 ```
+
 
 PCA
 ```{r}
@@ -85,22 +88,23 @@ fviz_pca_var(pca_result, col.var = "cos2",
              repel = TRUE)
 #Proiezione delle osservazioni sulle prime due componenti principali
 pca_data <- data.frame(pca_result$ind$coord)
-ggplot(pca_data, aes(x = Dim.1, y = Dim.3)) +
+ggplot(pca_data, aes(x = Dim.1, y = Dim.2)) +
   geom_point() +
   theme_minimal() +
   labs(title = "Proiezione sulle prime due componenti principali",
-       x = "PCA 1", y = "PCA 3")
+       x = "PCA 1", y = "PCA 2")
 
-# Aggiunta colonne Region e Municipality
+# Aggiunta colonne Region, Municipality e Year
 pca_data$Region <- data$Region
 pca_data$Municipality <- data$Municipality
+pca_data$Year <- data$Year
 
 # Andiamo a mettere i colori alle occorrenze delle varie regioni (le varie strisce sono gli anni che vengono presi in considerazione)
-ggplot(pca_data, aes(x = Dim.1, y = Dim.3, color = Region)) +
+ggplot(pca_data, aes(x = Dim.1, y = Dim.2, color = Region)) +
   geom_point(size = 3) +
   theme_minimal() +
   labs(title = "Proiezione con regioni colorate (palette personalizzata)",
-       x = "PCA 1", y = "PCA 3") +
+       x = "PCA 1", y = "PCA 2") +
   scale_color_manual(values = c(
     "red", "blue", "green", "orange", "purple", "brown", "pink", "cyan", "yellow", "black",
     "darkred", "darkblue", "darkgreen", "gold", "violet", "chocolate", "turquoise", "gray", "darkorange", "navy"
@@ -128,7 +132,7 @@ fviz_pca_var(pca_result, axes = c(1, 2),
              gradient.cols = c("blue", "yellow", "red"),
              repel = TRUE) +
   labs(title = "Contributo delle variabili (PCA 1 e PCA 2)")
-# Visualizza il contributo per PCA 1 e PCA 3
+# Visualizza il contributo per PCA 3
 fviz_pca_var(pca_result, axes = c(1, 3),
              col.var = "contrib",
              gradient.cols = c("blue", "yellow", "red"),
@@ -148,40 +152,51 @@ plot_loadings <- function(loadings_sorted, pca_num) {
 plot_loadings(loading_pca1, 1)
 plot_loadings(loading_pca2, 2)
 plot_loadings(loading_pca3, 3)
-# COSA SUCCEDE? ABBIAMO NELLA PCA 2 SOLAMENTE LA VAR ANNO MOLTO RAPPRESENTATIVA MENTRE NELLA PCA 3 ANCHE SE SPIEGA MENO VARIANZA, è CARATTERIZZATA DA PIù VARIABILI (DA CHIEDERE)
+
 
 # Vediamo se c'è una correlazine in base alla posizione territoriale (Nord, Sud , Centro)
 # Calcola i centroidi delle regioni
 region_means <- pca_data %>%
   group_by(Region) %>%
-  summarise(Dim1_mean = mean(Dim.1), Dim3_mean = mean(Dim.3))
+  summarise(Dim1_mean = mean(Dim.1), Dim2_mean = mean(Dim.2))
 # Visualizza i centroidi per verifica
 print(region_means)
 
 ```
 
+
 K-Mean Clustering
 ```{r}
 
-# Selezioniamo le PCA 1 e 3
-pca_kmeans <- pca_data %>% select(-Region, -Municipality, -Dim.2, -Dim.4, -Dim.5)
+# Selezioniamo le PCA 1 e 2
+pca_kmeans <- pca_data %>% select(-Region, -Municipality, -Year, -Dim.3, -Dim.4, -Dim.5)
 
 # Verifica numero ottimale di cluster tramite silhouette
 fviz_nbclust(pca_kmeans, kmeans, method = "wss")
 
-# Siccome fino a 3 scende rapidamente e poi si stabilizza, usiamo il 3
+km.res <- kmeans(pca_kmeans, 2)
+sil <- silhouette(km.res$cluster, dist(pca_kmeans))
+fviz_silhouette(sil)
+
 km.res <- kmeans(pca_kmeans, 3)
 sil <- silhouette(km.res$cluster, dist(pca_kmeans))
 fviz_silhouette(sil)
-km.res.2 <- kmeans(pca_kmeans, 3)
+
+km.res <- kmeans(pca_kmeans, 4)
+sil <- silhouette(km.res$cluster, dist(pca_kmeans))
+fviz_silhouette(sil)
+
+km.res.2 <- kmeans(pca_kmeans, 2)
+
 fviz_cluster(km.res.2, data = pca_kmeans)+theme_minimal()
 
 # Troviamo la media di ogni cluster
 aggregate(pca_kmeans, by=list(cluster=km.res.2$cluster), mean)
 
-final_data <- cbind(pca_kmeans, Cluster = km.res.2$cluster)
+final_data_kmeans <- cbind(pca_kmeans, Cluster = km.res.2$cluster)
 
 ```
+
 
 Esempi di grafici interpretativi K-Mean Clustering
 ```{r}
