@@ -58,7 +58,7 @@ head(data[, c(utilita_cols, "Lavoro_pubblica_utilita_totale")])
 data <- data[c(1,2,3,4,5,6,7,8,15,19,20)]
 
 # Selezione delle variabili numeriche
-data_numeric <- data %>% select(-Region, -Municipality)
+data_numeric <- data %>% select(-Region, -Municipality, -Year)
 
 # Sostituzione dei NA con la media delle colonne
 data_cleaned <- data_numeric %>%
@@ -94,9 +94,10 @@ ggplot(pca_data, aes(x = Dim.1, y = Dim.2)) +
   labs(title = "Proiezione sulle prime due componenti principali",
        x = "PCA 1", y = "PCA 2")
 
-# Aggiunta colonne Region e Municipality
+# Aggiunta colonne Region, Municipality e Year
 pca_data$Region <- data$Region
 pca_data$Municipality <- data$Municipality
+pca_data$Year <- data$Year
 
 # Andiamo a mettere i colori alle occorrenze delle varie regioni (le varie strisce sono gli anni che vengono presi in considerazione)
 ggplot(pca_data, aes(x = Dim.1, y = Dim.2, color = Region)) +
@@ -152,7 +153,6 @@ plot_loadings(loading_pca1, 1)
 plot_loadings(loading_pca2, 2)
 plot_loadings(loading_pca3, 3)
 
-# COSA SUCCEDE? ABBIAMO NELLA PCA 2 SOLAMENTE LA VAR ANNO MOLTO RAPPRESENTATIVA MENTRE NELLA PCA 3 ANCHE SE SPIEGA MENO VARIANZA, è CARATTERIZZATA DA PIù VARIABILI (DA CHIEDERE)
 
 # Vediamo se c'è una correlazine in base alla posizione territoriale (Nord, Sud , Centro)
 # Calcola i centroidi delle regioni
@@ -168,8 +168,8 @@ print(region_means)
 K-Mean Clustering
 ```{r}
 
-# Selezioniamo le PCA
-pca_kmeans <- pca_data %>% select(-Region, -Municipality, -Dim.2, -Dim.4, -Dim.5)
+# Selezioniamo le PCA 1 e 2
+pca_kmeans <- pca_data %>% select(-Region, -Municipality, -Year, -Dim.3, -Dim.4, -Dim.5)
 
 # Verifica numero ottimale di cluster tramite silhouette
 fviz_nbclust(pca_kmeans, kmeans, method = "wss")
@@ -182,11 +182,7 @@ km.res <- kmeans(pca_kmeans, 3)
 sil <- silhouette(km.res$cluster, dist(pca_kmeans))
 fviz_silhouette(sil)
 
-km.res <- kmeans(pca_kmeans, 7)
-sil <- silhouette(km.res$cluster, dist(pca_kmeans))
-fviz_silhouette(sil)
-
-km.res <- kmeans(pca_kmeans, 8)
+km.res <- kmeans(pca_kmeans, 4)
 sil <- silhouette(km.res$cluster, dist(pca_kmeans))
 fviz_silhouette(sil)
 
@@ -197,7 +193,7 @@ fviz_cluster(km.res.2, data = pca_kmeans)+theme_minimal()
 # Troviamo la media di ogni cluster
 aggregate(pca_kmeans, by=list(cluster=km.res.2$cluster), mean)
 
-final_data <- cbind(pca_kmeans, Cluster = km.res.2$cluster)
+final_data_kmeans <- cbind(pca_kmeans, Cluster = km.res.2$cluster)
 
 ```
 
@@ -205,49 +201,49 @@ final_data <- cbind(pca_kmeans, Cluster = km.res.2$cluster)
 Esempi di grafici interpretativi K-Mean Clustering
 ```{r}
 
-# Prima di tutto, aggiungiamo la colonna dei cluster al dataset per poter fare le visualizzazioni
-pca_data$Cluster <- km.res.2$cluster
+# Prima di tutto, aggiungiamo le colonne Region, Municipality e Year al dataset per poter fare le visualizzazioni
+final_data_kmeans$Region <- pca_data$Region
+final_data_kmeans$Municipality <- pca_data$Municipality
+final_data_kmeans$Year <- pca_data$Year
 
 # 1. Grafico della distribuzione dei cluster nelle prime due componenti principali
-ggplot(pca_data, aes(x = Dim.1, y = Dim.3, color = as.factor(Cluster))) +
+ggplot(final_data_kmeans, aes(x = Dim.1, y = Dim.2, color = as.factor(Cluster))) +
   geom_point(size = 3) +
   theme_minimal() +
   labs(title = "Distribuzione dei Cluster sulle Prime Due Componenti Principali",
-       x = "PCA 1", y = "PCA 3", color = "Cluster")
+       x = "PCA 1", y = "PCA 2", color = "Cluster")
 
 # 2. Grafico dei cluster suddivisi per Regione
-ggplot(pca_data, aes(x = Dim.1, y = Dim.3, color = Region)) +
+ggplot(final_data_kmeans, aes(x = Dim.1, y = Dim.2, color = Region)) +
   geom_point(aes(shape = as.factor(Cluster)), size = 3) +
   theme_minimal() +
   labs(title = "Distribuzione dei Cluster Suddivisi per Regione",
-       x = "PCA 1", y = "PCA 3", color = "Regione", shape = "Cluster") +
+       x = "PCA 1", y = "PCA 2", color = "Regione", shape = "Cluster") +
   scale_color_manual(values = c(
     "red", "blue", "green", "orange", "purple", "brown", "pink", "cyan", "yellow", "black",
     "darkred", "darkblue", "darkgreen", "gold", "violet", "chocolate", "turquoise", "gray", "darkorange", "navy"
   ))
 
-# 3. Grafico dei cluster suddivisi per Anno (assumendo che esista una colonna 'Year')
-pca_data$Year <- data$Year
-ggplot(pca_data, aes(x = Dim.1, y = Dim.3, color = as.factor(Year))) +
+# 3. Grafico dei cluster suddivisi per Anno
+ggplot(final_data_kmeans, aes(x = Dim.1, y = Dim.2, color = as.factor(Year))) +
   geom_point(aes(shape = as.factor(Cluster)), size = 3) +
   theme_minimal() +
   labs(title = "Distribuzione dei Cluster Suddivisi per Anno",
-       x = "PCA 1", y = "PCA 3", color = "Anno", shape = "Cluster") +
+       x = "PCA 1", y = "PCA 2", color = "Anno", shape = "Cluster") +
   scale_color_manual(values = c(
     "2019" = "red", "2020" = "blue", "2021" = "green", "2022" = "orange", "2023" = "purple"
   ))
 
-# 4. Boxplot dei cluster per variabili specifiche, suddivisi per Regione
-ggplot(final_data, aes(x = as.factor(Cluster), y = Dim.1, fill = as.factor(Cluster))) +
+# 4. Boxplot dei cluster per PCA 1, suddivisi per Regione
+ggplot(final_data_kmeans, aes(x = as.factor(Cluster), y = Dim.1, fill = as.factor(Cluster))) +
   geom_boxplot() +
   theme_minimal() +
   labs(title = "Distribuzione per Cluster: Dimensione 1",
        x = "Cluster", y = "Dimensione 1") +
   scale_fill_manual(values = c("lightblue", "lightgreen", "lightcoral"))
 
-# 5. Grafico a barre della media di una variabile per ciascun cluster, diviso per Regione
-final_data$Region <- data$Region
-aggregate_data <- final_data %>%
+# 5. Grafico a barre della media di PCA 1 per ciascun cluster, diviso per Regione
+aggregate_data <- final_data_kmeans %>%
   group_by(Cluster, Region) %>%
   summarise(Dimensione1 = mean(Dim.1))
 
@@ -258,9 +254,8 @@ ggplot(aggregate_data, aes(x = Region, y = Dimensione1, fill = as.factor(Cluster
        x = "Regione", y = "Dim 1") +
   scale_fill_manual(values = c("lightblue", "lightgreen", "lightcoral"))
 
-# 6. Confronto tra i cluster per variabili temporali (se la variabile Anno esiste)
-final_data$Year <- data$Year
-aggregate_year <- final_data %>%
+# 6. Confronto tra i cluster per variabili temporali
+aggregate_year <- final_data_kmeans %>%
   group_by(Cluster, Year) %>%
   summarise(Dimensione1 = mean(Dim.1))
 
@@ -270,13 +265,13 @@ ggplot(aggregate_year, aes(x = as.factor(Year), y = Dimensione1, fill = as.facto
   labs(title = "Media di Dimensione 1 per Anno e Cluster", x = "Anno", y = "Dim 1") +
   scale_fill_manual(values = c("lightblue", "lightgreen", "lightcoral"))
 
-# 7. Calcoliamo la media delle dimensioni 1 e 3 per cluster, regione e anno
-performance_by_region_cluster <- pca_data %>%
+# 7. Calcoliamo la media delle PCA 1 e 2 per cluster, regione e anno
+performance_by_region_cluster <- final_data_kmeans %>%
   group_by(Region, Year, Cluster) %>%
   summarise(Dim1_mean = mean(Dim.1, na.rm = TRUE),
-            Dim3_mean = mean(Dim.3, na.rm = TRUE))
+            Dim2_mean = mean(Dim.2, na.rm = TRUE))
 
-# Creiamo un grafico con ggplot2 per mostrare l'andamento della Dimensione 1 nel tempo, separato per cluster
+# Creiamo un grafico con ggplot2 per mostrare l'andamento della PCA 1 nel tempo, separato per cluster
 dim1_plot_cluster <- ggplot(performance_by_region_cluster, aes(x = Year, y = Dim1_mean, color = as.factor(Cluster), group = interaction(Region, Cluster))) +
   geom_line(size = 1) +
   geom_point(size = 2) +
@@ -287,37 +282,37 @@ dim1_plot_cluster <- ggplot(performance_by_region_cluster, aes(x = Year, y = Dim
        color = "Cluster") +
   theme(legend.position = "bottom")
 
-# Creiamo un grafico con ggplot2 per mostrare l'andamento della Dimensione 3 nel tempo, separato per cluster
-dim3_plot_cluster <- ggplot(performance_by_region_cluster, aes(x = Year, y = Dim3_mean, color = as.factor(Cluster), group = interaction(Region, Cluster))) +
+# Creiamo un grafico con ggplot2 per mostrare l'andamento della PCA 2 nel tempo, separato per cluster
+dim2_plot_cluster <- ggplot(performance_by_region_cluster, aes(x = Year, y = Dim2_mean, color = as.factor(Cluster), group = interaction(Region, Cluster))) +
   geom_line(size = 1) +
   geom_point(size = 2) +
   theme_minimal() +
-  labs(title = "Andamento della Dimensione 3 nel tempo per Cluster",
+  labs(title = "Andamento della Dimensione 2 nel tempo per Cluster",
        x = "Anno",
-       y = "Media Dimensione 3",
+       y = "Media Dimensione 2",
        color = "Cluster") +
   theme(legend.position = "bottom")
 
 # Visualizziamo i grafici
 print(dim1_plot_cluster)
-print(dim3_plot_cluster)
+print(dim2_plot_cluster)
 
 # 8. Creiamo un dataset con le medie per ogni cluster, regione e anno
-performance_by_region_cluster <- pca_data %>%
+performance_by_region_cluster <- final_data_kmeans %>%
   group_by(Region, Year, Cluster) %>%
   summarise(Dim1_mean = mean(Dim.1, na.rm = TRUE),
-            Dim3_mean = mean(Dim.3, na.rm = TRUE))
+            Dim2_mean = mean(Dim.2, na.rm = TRUE))
 
 # Creiamo un grafico con faccette per anno, includendo anche le municipalità, e raggruppando per Cluster
-facet_plot_cluster <- ggplot(performance_by_region_cluster, aes(x = Dim1_mean, y = Dim3_mean)) +
+facet_plot_cluster <- ggplot(performance_by_region_cluster, aes(x = Dim1_mean, y = Dim2_mean)) +
   # Punti per ogni municipalità, colorati per regione e separati per cluster
   geom_point(aes(color = Region, shape = as.factor(Cluster)), size = 3) + 
   geom_text(aes(label = Region), vjust = -0.5, hjust = 0.5, size = 3) +  # Etichette per le regioni
   facet_wrap(~ Year, scales = "free") +  # Faccette per ogni anno
   theme_minimal() +
-  labs(title = "Performance delle regioni sulle dimensioni 1 e 3 per Cluster",
+  labs(title = "Performance delle regioni sulle dimensioni 1 e 2 per Cluster",
        x = "Dimensione 1",
-       y = "Dimensione 3",
+       y = "Dimensione 2",
        color = "Regioni",
        shape = "Cluster") +
   theme(legend.position = "bottom", # Posizione legenda
@@ -327,15 +322,15 @@ facet_plot_cluster <- ggplot(performance_by_region_cluster, aes(x = Dim1_mean, y
 print(facet_plot_cluster)
 
 # 9. Aggiungiamo il raggruppamento per Cluster nei dati
-performance_by_region_municipality_cluster <- pca_data %>%
+performance_by_region_municipality_cluster <- final_data_kmeans %>%
   group_by(Region, Municipality, Year, Cluster) %>%
   summarise(Dim1_mean = mean(Dim.1, na.rm = TRUE),
-            Dim3_mean = mean(Dim.3, na.rm = TRUE))
+            Dim2_mean = mean(Dim.2, na.rm = TRUE))
 
 # Creiamo il grafico dinamico con plotly e animazione per anno
 animated_plot <- plot_ly(performance_by_region_municipality_cluster, 
                          x = ~Dim1_mean, 
-                         y = ~Dim3_mean, 
+                         y = ~Dim2_mean, 
                          color = ~Region, 
                          frame = ~Year,   # Animazione per anno
                          text = ~paste("Municipality:", Municipality, "<br>Year:", Year),
@@ -343,9 +338,9 @@ animated_plot <- plot_ly(performance_by_region_municipality_cluster,
                          type = 'scatter', 
                          mode = 'markers', 
                          marker = list(size = 10)) %>%
-  layout(title = "Performance delle regioni e municipalità sulle dimensioni 1 e 3 per Cluster",
+  layout(title = "Performance delle regioni e municipalità sulle dimensioni 1 e 2 per Cluster",
          xaxis = list(title = "Dimensione 1"),
-         yaxis = list(title = "Dimensione 3"),
+         yaxis = list(title = "Dimensione 2"),
          updatemenus = list(
            list(
              type = 'buttons',
@@ -360,20 +355,20 @@ animated_plot <- plot_ly(performance_by_region_municipality_cluster,
 animated_plot
 
 # 10. Aggiungiamo il raggruppamento per Cluster nei dati
-performance_by_region_municipality_cluster <- pca_data %>%
+performance_by_region_municipality_cluster <- final_data_kmeans %>%
   group_by(Region, Municipality, Year, Cluster) %>%
   summarise(Dim1_mean = mean(Dim.1, na.rm = TRUE),
-            Dim3_mean = mean(Dim.3, na.rm = TRUE))
+            Dim2_mean = mean(Dim.2, na.rm = TRUE))
 
 # Mappiamo i cluster a simboli diversi (forma del punto)
 performance_by_region_municipality_cluster <- performance_by_region_municipality_cluster %>%
-  mutate(symbol = factor(Cluster, levels = c(1, 2, 3, 4, 5), 
-                         labels = c('circle', 'square', 'diamond', 'triangle-up', 'triangle-down')))
+  mutate(symbol = factor(Cluster, levels = c(1, 2), 
+                         labels = c('circle', 'square')))
 
 # Creiamo il grafico dinamico con plotly e animazione per anno
 animated_plot <- plot_ly(performance_by_region_municipality_cluster, 
                          x = ~Dim1_mean, 
-                         y = ~Dim3_mean, 
+                         y = ~Dim2_mean, 
                          color = ~Region, 
                          symbol = ~symbol,  # Forma del punto in base al cluster
                          frame = ~Year,   # Animazione per anno
@@ -382,9 +377,9 @@ animated_plot <- plot_ly(performance_by_region_municipality_cluster,
                          type = 'scatter', 
                          mode = 'markers', 
                          marker = list(size = 10)) %>%
-  layout(title = "Performance delle regioni e municipalità sulle dimensioni 1 e 3 per Cluster",
+  layout(title = "Performance delle regioni e municipalità sulle dimensioni 1 e 2 per Cluster",
          xaxis = list(title = "Dimensione 1"),
-         yaxis = list(title = "Dimensione 3"),
+         yaxis = list(title = "Dimensione 2"),
          updatemenus = list(
            list(
              type = 'buttons',
@@ -404,8 +399,8 @@ animated_plot
 Hierarchical Clustering
 ```{r}
 
-# Selezioniamo le PCA
-pca_hierarchical <- pca_data %>% select(-Region, -Municipality, -Dim.2, -Dim.4, -Dim.5)
+# Selezioniamo le PCA 1 e 2
+pca_hierarchical <- pca_data %>% select(-Region, -Municipality, -Year, -Dim.3, -Dim.4, -Dim.5)
 
 # Definiamo linkage methods
 m <- c( "average", "single", "complete", "ward")
@@ -447,21 +442,23 @@ rect.hclust(final_clust, k = 3, border = "green")
 
 pca_hierarchical$Region <- pca_data$Region
 pca_hierarchical$Municipality <- pca_data$Municipality
+pca_hierarchical$Year <- pca_data$Year
 
-final_data <- cbind(pca_hierarchical, cluster = groups)
-aggregate(final_data, by=list(cluster=final_data$cluster), mean)
 
-ggplot(final_data) +
-  aes(x = Dim.1, y = Dim.3, colour = as.factor(cluster)) +
+final_data_hierarchical <- cbind(pca_hierarchical, cluster = groups)
+aggregate(final_data_hierarchical, by=list(cluster=final_data_hierarchical$cluster), mean)
+
+ggplot(final_data_hierarchical) +
+  aes(x = Dim.1, y = Dim.2, colour = as.factor(cluster)) +
   geom_point(shape = "circle", size = 1.5) +
   theme_minimal()
 
 # Crea il grafico con ggplot2, colorando in base alla regione
-ggplot(final_data, aes(x = Dim.1, y = Dim.3, color = Region)) +
+ggplot(final_data_hierarchical, aes(x = Dim.1, y = Dim.2, color = Region)) +
   geom_point(shape = "circle", size = 1.5) +
   theme_minimal() +
   labs(title = "Proiezione delle osservazioni colorata per regione",
-       x = "PCA 1", y = "PCA 3") +
+       x = "PCA 1", y = "PCA 2") +
   scale_color_manual(values = c(
     "red", "blue", "green", "orange", "purple", "brown", "pink", "cyan", "yellow", 
     "black", "darkred", "darkblue", "darkgreen", "gold", "violet", "chocolate", 
@@ -470,12 +467,11 @@ ggplot(final_data, aes(x = Dim.1, y = Dim.3, color = Region)) +
   theme(legend.title = element_blank())  # Rimuove il titolo della legenda
 
 # Crea il grafico con faceting per anno
-final_data$Year <- data_numeric$Year
-ggplot(final_data, aes(x = Dim.1, y = Dim.3, color = Region)) +
+ggplot(final_data_hierarchical, aes(x = Dim.1, y = Dim.2, color = Region)) +
   geom_point(shape = "circle", size = 1.5) +
   theme_minimal() +
   labs(title = "Proiezione delle osservazioni colorata per regione e divisa per anno",
-       x = "PCA 1", y = "PCA 3") +
+       x = "PCA 1", y = "PCA 2") +
   scale_color_manual(values = c(
     "red", "blue", "green", "orange", "purple", "brown", "pink", "cyan", "yellow", 
     "black", "darkred", "darkblue", "darkgreen", "gold", "violet", "chocolate", 
@@ -490,9 +486,9 @@ ggplot(final_data, aes(x = Dim.1, y = Dim.3, color = Region)) +
 DBScan Clustering
 ```{r}
 
-# Selezioniamo le prime due componenti principali per il clustering (Dim.1 e Dim.3)
+# Selezioniamo le prime due componenti principali per il clustering (Dim.1 e Dim.2)
 # Usa anche altre dimensioni se necessario
-pca_data_dbscan <- pca_data %>% select(Dim.1, Dim.3)
+pca_data_dbscan <- pca_data %>% select(Dim.1, Dim.2)
 
 # Esegui il clustering DBSCAN
 # Parametri eps e minPts devono essere scelti con attenzione (eps è la distanza massima per la vicinanza)
@@ -509,22 +505,16 @@ dbscan_result
 
 hullplot(x = pca_data_dbscan, cl = dbscan_result) # grafico delle aree convesse
 
-final_data=cbind(pca_data_dbscan, Cluster=dbscan_result$cluster)
+final_data_dbscan=cbind(pca_data_dbscan, Cluster=dbscan_result$cluster)
 
 # Visualizza i cluster
 table(dbscan_result$cluster)
 
 # Crea una mappa dei cluster (colorata in base al cluster)
-ggplot(pca_data, aes(x = Dim.1, y = Dim.3, color = factor(dbscan_result$cluster))) +
+ggplot(final_data_dbscan, aes(x = Dim.1, y = Dim.2, color = factor(dbscan_result$cluster))) +
   geom_point() +
   labs(title = "DBSCAN Clustering", color = "Cluster") +
   theme_minimal()
-
-# Se vuoi aggiungere le informazioni sui cluster ai dati originali
-pca_data$DBSCAN_Cluster <- dbscan_result$cluster
-
-# Visualizza i primi 6 dati con cluster assegnato
-head(pca_data)
 
 ```
 
@@ -532,52 +522,48 @@ head(pca_data)
 Esempi di grafici interpretativi su DBScan Clustering
 ```{r}
 
+# Aggiungiamo le colonne Year, Region e Municipality ad data set
+final_data_dbscan$Year <- pca_data$Year
+final_data_dbscan$Region <- pca_data$Region
+final_data_dbscan$Municipality <- pca_data$Municipality
+
 # Crea una mappa dei cluster (colorata in base al cluster)
-ggplot(pca_data, aes(x = Dim.1, y = Dim.3, color = factor(dbscan_result$cluster))) +
+ggplot(final_data_dbscan, aes(x = Dim.1, y = Dim.2, color = factor(dbscan_result$cluster))) +
   geom_point() +
   labs(title = "DBSCAN Clustering", color = "Cluster") +
   theme_minimal()
 
-# Se vuoi aggiungere le informazioni sui cluster ai dati originali
-pca_data$DBSCAN_Cluster <- dbscan_result$cluster
-
-# Visualizza i primi 6 dati con cluster assegnato
-head(pca_data)
-
 # Contare il numero di regioni per cluster
-cluster_counts <- pca_data %>%
-  group_by(DBSCAN_Cluster, Region) %>%
+cluster_counts <- final_data_dbscan %>%
+  group_by(Cluster, Region) %>%
   summarise(Count = n()) %>%
-  filter(DBSCAN_Cluster != 0) # Ignora il cluster di rumore (0)
+  filter(Cluster != 0) # Ignora il cluster di rumore (0)
 
 # Grafico a barre per distribuzione delle regioni nei cluster
-ggplot(cluster_counts, aes(x = factor(DBSCAN_Cluster), y = Count, fill = Region)) +
+ggplot(cluster_counts, aes(x = factor(Cluster), y = Count, fill = Region)) +
   geom_bar(stat = "identity", position = "dodge") +
   labs(title = "Distribuzione delle Regioni nei Cluster", x = "Cluster", y = "Numero di Occorrenze") +
   scale_fill_brewer(palette = "Paired") +
   theme_minimal()
 
-# Assumendo di avere una colonna "Year" nei dati
-pca_data$Year <- data$Year  # Aggiungi l'anno, se non presente
-
 # Distribuzione per cluster e anno
-cluster_year <- pca_data %>%
-  group_by(DBSCAN_Cluster, Year) %>%
+cluster_year <- final_data_dbscan %>%
+  group_by(Cluster, Year) %>%
   summarise(Count = n()) %>%
-  filter(DBSCAN_Cluster != 0)
+  filter(Cluster != 0)
 
 # Grafico a linee per mostrare l'evoluzione temporale dei cluster
-ggplot(cluster_year, aes(x = Year, y = Count, color = factor(DBSCAN_Cluster), group = DBSCAN_Cluster)) +
+ggplot(cluster_year, aes(x = Year, y = Count, color = factor(Cluster), group = Cluster)) +
   geom_line(size = 1) +
   geom_point(size = 2) +
   labs(title = "Evoluzione Temporale dei Cluster", x = "Anno", y = "Numero di Occorrenze", color = "Cluster") +
   theme_minimal()
 
 # Calcolo delle medie delle variabili numeriche per cluster e regione
-cluster_summary <- pca_data %>%
-  group_by(DBSCAN_Cluster, Region) %>%
+cluster_summary <- final_data_dbscan %>%
+  group_by(Cluster, Region) %>%
   summarise(across(starts_with("Dim"), mean, na.rm = TRUE)) %>%
-  filter(DBSCAN_Cluster != 0)
+  filter(Cluster != 0)
 
 # Converti in formato lungo per creare una heatmap
 heatmap_data <- cluster_summary %>%
@@ -586,11 +572,10 @@ heatmap_data <- cluster_summary %>%
 # Heatmap
 ggplot(heatmap_data, aes(x = Region, y = Dimension, fill = MeanValue)) +
   geom_tile(color = "white") +
-  facet_wrap(~ DBSCAN_Cluster, ncol = 1) +
+  facet_wrap(~ Cluster, ncol = 1) +
   scale_fill_gradient(low = "blue", high = "red") +
   labs(title = "Heatmap dei Cluster per Regione e Variabili", x = "Regione", y = "Dimensione", fill = "Valore Medio") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 ```
-
