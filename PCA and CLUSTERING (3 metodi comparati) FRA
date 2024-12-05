@@ -5,7 +5,7 @@ editor_options:
   chunk_output_type: console
 ---
 
-Data preparation
+Data Preparation
 ```{r}
 
 options(scipen = 99999999)
@@ -67,7 +67,7 @@ data_cleaned <- data_numeric %>%
 ```
 
 
-PCA
+PCA + Interpretation
 ```{r}
 
 # Standardizzazione delle variabili numeriche
@@ -86,6 +86,7 @@ fviz_cos2(pca_result, choice = "var", axes = 1:2)
 fviz_pca_var(pca_result, col.var = "cos2",
              gradient.cols = c("black", "orange", "green"),
              repel = TRUE)
+
 #Proiezione delle osservazioni sulle prime due componenti principali
 pca_data <- data.frame(pca_result$ind$coord)
 ggplot(pca_data, aes(x = Dim.1, y = Dim.2)) +
@@ -99,7 +100,7 @@ pca_data$Region <- data$Region
 pca_data$Municipality <- data$Municipality
 pca_data$Year <- data$Year
 
-# Andiamo a mettere i colori alle occorrenze delle varie regioni (le varie strisce sono gli anni che vengono presi in considerazione)
+# Andiamo a mettere i colori alle occorrenze delle varie regioni
 ggplot(pca_data, aes(x = Dim.1, y = Dim.2, color = Region)) +
   geom_point(size = 3) +
   theme_minimal() +
@@ -162,6 +163,37 @@ region_means <- pca_data %>%
 # Visualizza i centroidi per verifica
 print(region_means)
 
+# Ora interpretiamo le PC per assegnargli dei significati
+# Estrarre le componenti principali
+pc_scores <- as.data.frame(pca_result$ind$coord)
+
+# Calcolare la matrice di correlazione tra variabili originali e PC
+correlation_matrix <- cor(data_scaled, pc_scores)
+
+# Visualizzare la matrice di correlazione
+print(correlation_matrix)
+# Osserva quali variabili hanno le correlazioni più forti (positive o negative) con ciascuna PC
+# Nel nostro caso:
+# PC1 --> Correlazione fortemente positiva con quasi tutte le variabili, in particolare "Totale soggetti in carico" (0.99), "In carico all'inizio dell'anno" (0.98), "Presi in carico nell'anno" (0.98). Questa componente rappresenta probabilmente il volume complessivo di gestione dei soggetti tramite misure alternative, ovvero un indicatore della dimensione totale del carico del sistema.
+# PC2 --> Maggiore correlazione positiva con "Lavoro di pubblica utilità totale" (0.64) e Maggiore correlazione negativa con "Detenzione domiciliare" (-0.44). Sembra separare le misure alternative alla detenzione (es., lavoro di pubblica utilità) dalle forme più tradizionali come la detenzione domiciliare. Potrebbe rappresentare la preferenza per soluzioni riabilitative moderne rispetto a quelle tradizionali.
+
+# Riorganizzare la matrice per la visualizzazione
+corr_melted <- melt(correlation_matrix)
+
+# Creare la heatmap
+ggplot(corr_melted, aes(Var1, Var2, fill = value)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", midpoint = 0) +
+  labs(x = "Componenti Principali", y = "Variabili Originali", fill = "Correlazione") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# In base a tali osservazioni rinominiamo le PC
+pca_data <- pca_data %>% rename(
+  "Volume Sistema Penale Esterno" = Dim.1,
+  "Preferenza Soluzioni Riabilitative Moderne" = Dim.2
+)
+
 ```
 
 
@@ -182,11 +214,11 @@ km.res <- kmeans(pca_kmeans, 3)
 sil <- silhouette(km.res$cluster, dist(pca_kmeans))
 fviz_silhouette(sil)
 
-km.res <- kmeans(pca_kmeans, 4)
+km.res <- kmeans(pca_kmeans, 8)
 sil <- silhouette(km.res$cluster, dist(pca_kmeans))
 fviz_silhouette(sil)
 
-km.res.2 <- kmeans(pca_kmeans, 2)
+km.res.2 <- kmeans(pca_kmeans, 3)
 
 fviz_cluster(km.res.2, data = pca_kmeans)+theme_minimal()
 
@@ -207,78 +239,78 @@ final_data_kmeans$Municipality <- pca_data$Municipality
 final_data_kmeans$Year <- pca_data$Year
 
 # 1. Grafico della distribuzione dei cluster nelle prime due componenti principali
-ggplot(final_data_kmeans, aes(x = Dim.1, y = Dim.2, color = as.factor(Cluster))) +
+ggplot(final_data_kmeans, aes(x = `Volume Sistema Penale Esterno` , y = `Preferenza Soluzioni Riabilitative Moderne`, color = as.factor(Cluster))) +
   geom_point(size = 3) +
   theme_minimal() +
   labs(title = "Distribuzione dei Cluster sulle Prime Due Componenti Principali",
-       x = "PCA 1", y = "PCA 2", color = "Cluster")
+       x = "Volume Sistema Penale Esterno", y = "Preferenza Soluzioni Riabilitative Moderne", color = "Cluster")
 
 # 2. Grafico dei cluster suddivisi per Regione
-ggplot(final_data_kmeans, aes(x = Dim.1, y = Dim.2, color = Region)) +
+ggplot(final_data_kmeans, aes(x = `Volume Sistema Penale Esterno`, y = `Preferenza Soluzioni Riabilitative Moderne`, color = Region)) +
   geom_point(aes(shape = as.factor(Cluster)), size = 3) +
   theme_minimal() +
   labs(title = "Distribuzione dei Cluster Suddivisi per Regione",
-       x = "PCA 1", y = "PCA 2", color = "Regione", shape = "Cluster") +
+       x = "Volume Sistema Penale Esterno", y = "Preferenza Soluzioni Riabilitative Moderne", color = "Regione", shape = "Cluster") +
   scale_color_manual(values = c(
     "red", "blue", "green", "orange", "purple", "brown", "pink", "cyan", "yellow", "black",
     "darkred", "darkblue", "darkgreen", "gold", "violet", "chocolate", "turquoise", "gray", "darkorange", "navy"
   ))
 
 # 3. Grafico dei cluster suddivisi per Anno
-ggplot(final_data_kmeans, aes(x = Dim.1, y = Dim.2, color = as.factor(Year))) +
+ggplot(final_data_kmeans, aes(x = `Volume Sistema Penale Esterno`, y = `Preferenza Soluzioni Riabilitative Moderne`, color = as.factor(Year))) +
   geom_point(aes(shape = as.factor(Cluster)), size = 3) +
   theme_minimal() +
   labs(title = "Distribuzione dei Cluster Suddivisi per Anno",
-       x = "PCA 1", y = "PCA 2", color = "Anno", shape = "Cluster") +
+       x = "Volume Sistema Penale Esterno", y = "Preferenza Soluzioni Riabilitative Moderne", color = "Anno", shape = "Cluster") +
   scale_color_manual(values = c(
     "2019" = "red", "2020" = "blue", "2021" = "green", "2022" = "orange", "2023" = "purple"
   ))
 
 # 4. Boxplot dei cluster per PCA 1, suddivisi per Regione
-ggplot(final_data_kmeans, aes(x = as.factor(Cluster), y = Dim.1, fill = as.factor(Cluster))) +
+ggplot(final_data_kmeans, aes(x = as.factor(Cluster), y = `Volume Sistema Penale Esterno`, fill = as.factor(Cluster))) +
   geom_boxplot() +
   theme_minimal() +
   labs(title = "Distribuzione per Cluster: Dimensione 1",
-       x = "Cluster", y = "Dimensione 1") +
+       x = "Cluster", y = "Volume Sistema Penale Esterno") +
   scale_fill_manual(values = c("lightblue", "lightgreen", "lightcoral"))
 
 # 5. Grafico a barre della media di PCA 1 per ciascun cluster, diviso per Regione
 aggregate_data <- final_data_kmeans %>%
   group_by(Cluster, Region) %>%
-  summarise(Dimensione1 = mean(Dim.1))
+  summarise(Dimensione1 = mean(`Volume Sistema Penale Esterno`))
 
 ggplot(aggregate_data, aes(x = Region, y = Dimensione1, fill = as.factor(Cluster))) +
   geom_bar(stat = "identity", position = "dodge") +
   theme_minimal() +
-  labs(title = "Media di Dimensione 1 per Regione e Cluster",
-       x = "Regione", y = "Dim 1") +
+  labs(title = "Media di Volume Sistema Penale Esterno per Regione e Cluster",
+       x = "Regione", y = "Volume Sistema Penale Esterno") +
   scale_fill_manual(values = c("lightblue", "lightgreen", "lightcoral"))
 
 # 6. Confronto tra i cluster per variabili temporali
 aggregate_year <- final_data_kmeans %>%
   group_by(Cluster, Year) %>%
-  summarise(Dimensione1 = mean(Dim.1))
+  summarise(Dimensione1 = mean(`Volume Sistema Penale Esterno`))
 
 ggplot(aggregate_year, aes(x = as.factor(Year), y = Dimensione1, fill = as.factor(Cluster))) +
   geom_bar(stat = "identity", position = "dodge") +
   theme_minimal() +
-  labs(title = "Media di Dimensione 1 per Anno e Cluster", x = "Anno", y = "Dim 1") +
+  labs(title = "Media di Volume Sistema Penale Esterno per Anno e Cluster", x = "Anno", y = "Volume Sistema Penale Esterno") +
   scale_fill_manual(values = c("lightblue", "lightgreen", "lightcoral"))
 
 # 7. Calcoliamo la media delle PCA 1 e 2 per cluster, regione e anno
 performance_by_region_cluster <- final_data_kmeans %>%
   group_by(Region, Year, Cluster) %>%
-  summarise(Dim1_mean = mean(Dim.1, na.rm = TRUE),
-            Dim2_mean = mean(Dim.2, na.rm = TRUE))
+  summarise(Dim1_mean = mean(`Volume Sistema Penale Esterno`, na.rm = TRUE),
+            Dim2_mean = mean(`Preferenza Soluzioni Riabilitative Moderne`, na.rm = TRUE))
 
 # Creiamo un grafico con ggplot2 per mostrare l'andamento della PCA 1 nel tempo, separato per cluster
 dim1_plot_cluster <- ggplot(performance_by_region_cluster, aes(x = Year, y = Dim1_mean, color = as.factor(Cluster), group = interaction(Region, Cluster))) +
   geom_line(size = 1) +
   geom_point(size = 2) +
   theme_minimal() +
-  labs(title = "Andamento della Dimensione 1 nel tempo per Cluster",
+  labs(title = "Andamento del Volume Sistema Penale Esterno nel tempo per Cluster",
        x = "Anno",
-       y = "Media Dimensione 1",
+       y = "Media Volume Sistema Penale Esterno",
        color = "Cluster") +
   theme(legend.position = "bottom")
 
@@ -287,9 +319,9 @@ dim2_plot_cluster <- ggplot(performance_by_region_cluster, aes(x = Year, y = Dim
   geom_line(size = 1) +
   geom_point(size = 2) +
   theme_minimal() +
-  labs(title = "Andamento della Dimensione 2 nel tempo per Cluster",
+  labs(title = "Andamento della Preferenza Soluzioni Riabilitative Moderne nel tempo per Cluster",
        x = "Anno",
-       y = "Media Dimensione 2",
+       y = "Media Preferenza Soluzioni Riabilitative Moderne",
        color = "Cluster") +
   theme(legend.position = "bottom")
 
@@ -300,8 +332,8 @@ print(dim2_plot_cluster)
 # 8. Creiamo un dataset con le medie per ogni cluster, regione e anno
 performance_by_region_cluster <- final_data_kmeans %>%
   group_by(Region, Year, Cluster) %>%
-  summarise(Dim1_mean = mean(Dim.1, na.rm = TRUE),
-            Dim2_mean = mean(Dim.2, na.rm = TRUE))
+  summarise(Dim1_mean = mean(`Volume Sistema Penale Esterno`, na.rm = TRUE),
+            Dim2_mean = mean(`Preferenza Soluzioni Riabilitative Moderne`, na.rm = TRUE))
 
 # Creiamo un grafico con faccette per anno, includendo anche le municipalità, e raggruppando per Cluster
 facet_plot_cluster <- ggplot(performance_by_region_cluster, aes(x = Dim1_mean, y = Dim2_mean)) +
@@ -311,8 +343,8 @@ facet_plot_cluster <- ggplot(performance_by_region_cluster, aes(x = Dim1_mean, y
   facet_wrap(~ Year, scales = "free") +  # Faccette per ogni anno
   theme_minimal() +
   labs(title = "Performance delle regioni sulle dimensioni 1 e 2 per Cluster",
-       x = "Dimensione 1",
-       y = "Dimensione 2",
+       x = "Volume Sistema Penale Esterno",
+       y = "Preferenza Soluzioni Riabilitative Moderne",
        color = "Regioni",
        shape = "Cluster") +
   theme(legend.position = "bottom", # Posizione legenda
@@ -324,8 +356,8 @@ print(facet_plot_cluster)
 # 9. Aggiungiamo il raggruppamento per Cluster nei dati
 performance_by_region_municipality_cluster <- final_data_kmeans %>%
   group_by(Region, Municipality, Year, Cluster) %>%
-  summarise(Dim1_mean = mean(Dim.1, na.rm = TRUE),
-            Dim2_mean = mean(Dim.2, na.rm = TRUE))
+  summarise(Dim1_mean = mean(`Volume Sistema Penale Esterno`, na.rm = TRUE),
+            Dim2_mean = mean(`Preferenza Soluzioni Riabilitative Moderne`, na.rm = TRUE))
 
 # Creiamo il grafico dinamico con plotly e animazione per anno
 animated_plot <- plot_ly(performance_by_region_municipality_cluster, 
@@ -339,8 +371,8 @@ animated_plot <- plot_ly(performance_by_region_municipality_cluster,
                          mode = 'markers', 
                          marker = list(size = 10)) %>%
   layout(title = "Performance delle regioni e municipalità sulle dimensioni 1 e 2 per Cluster",
-         xaxis = list(title = "Dimensione 1"),
-         yaxis = list(title = "Dimensione 2"),
+         xaxis = list(title = "Volume Sistema Penale Esterno"),
+         yaxis = list(title = "Preferenza Soluzioni Riabilitative Moderne"),
          updatemenus = list(
            list(
              type = 'buttons',
@@ -357,8 +389,8 @@ animated_plot
 # 10. Aggiungiamo il raggruppamento per Cluster nei dati
 performance_by_region_municipality_cluster <- final_data_kmeans %>%
   group_by(Region, Municipality, Year, Cluster) %>%
-  summarise(Dim1_mean = mean(Dim.1, na.rm = TRUE),
-            Dim2_mean = mean(Dim.2, na.rm = TRUE))
+  summarise(Dim1_mean = mean(`Volume Sistema Penale Esterno`, na.rm = TRUE),
+            Dim2_mean = mean(`Preferenza Soluzioni Riabilitative Moderne`, na.rm = TRUE))
 
 # Mappiamo i cluster a simboli diversi (forma del punto)
 performance_by_region_municipality_cluster <- performance_by_region_municipality_cluster %>%
@@ -378,8 +410,8 @@ animated_plot <- plot_ly(performance_by_region_municipality_cluster,
                          mode = 'markers', 
                          marker = list(size = 10)) %>%
   layout(title = "Performance delle regioni e municipalità sulle dimensioni 1 e 2 per Cluster",
-         xaxis = list(title = "Dimensione 1"),
-         yaxis = list(title = "Dimensione 2"),
+         xaxis = list(title = "Volume Sistema Penale Esterno"),
+         yaxis = list(title = "Preferenza Soluzioni Riabilitative Moderne"),
          updatemenus = list(
            list(
              type = 'buttons',
@@ -449,16 +481,16 @@ final_data_hierarchical <- cbind(pca_hierarchical, cluster = groups)
 aggregate(final_data_hierarchical, by=list(cluster=final_data_hierarchical$cluster), mean)
 
 ggplot(final_data_hierarchical) +
-  aes(x = Dim.1, y = Dim.2, colour = as.factor(cluster)) +
+  aes(x = `Volume Sistema Penale Esterno`, y = `Preferenza Soluzioni Riabilitative Moderne`, colour = as.factor(cluster)) +
   geom_point(shape = "circle", size = 1.5) +
   theme_minimal()
 
 # Crea il grafico con ggplot2, colorando in base alla regione
-ggplot(final_data_hierarchical, aes(x = Dim.1, y = Dim.2, color = Region)) +
+ggplot(final_data_hierarchical, aes(x = `Volume Sistema Penale Esterno`, y = `Preferenza Soluzioni Riabilitative Moderne`, color = Region)) +
   geom_point(shape = "circle", size = 1.5) +
   theme_minimal() +
   labs(title = "Proiezione delle osservazioni colorata per regione",
-       x = "PCA 1", y = "PCA 2") +
+       x = "Volume Sistema Penale Esterno", y = "Preferenza Soluzioni Riabilitative Moderne") +
   scale_color_manual(values = c(
     "red", "blue", "green", "orange", "purple", "brown", "pink", "cyan", "yellow", 
     "black", "darkred", "darkblue", "darkgreen", "gold", "violet", "chocolate", 
@@ -467,11 +499,11 @@ ggplot(final_data_hierarchical, aes(x = Dim.1, y = Dim.2, color = Region)) +
   theme(legend.title = element_blank())  # Rimuove il titolo della legenda
 
 # Crea il grafico con faceting per anno
-ggplot(final_data_hierarchical, aes(x = Dim.1, y = Dim.2, color = Region)) +
+ggplot(final_data_hierarchical, aes(x = `Volume Sistema Penale Esterno`, y = `Preferenza Soluzioni Riabilitative Moderne`, color = Region)) +
   geom_point(shape = "circle", size = 1.5) +
   theme_minimal() +
   labs(title = "Proiezione delle osservazioni colorata per regione e divisa per anno",
-       x = "PCA 1", y = "PCA 2") +
+       x = "Volume Sistema Penale Esterno", y = "Preferenza Soluzioni Riabilitative Moderne") +
   scale_color_manual(values = c(
     "red", "blue", "green", "orange", "purple", "brown", "pink", "cyan", "yellow", 
     "black", "darkred", "darkblue", "darkgreen", "gold", "violet", "chocolate", 
@@ -488,7 +520,7 @@ DBScan Clustering
 
 # Selezioniamo le prime due componenti principali per il clustering (Dim.1 e Dim.2)
 # Usa anche altre dimensioni se necessario
-pca_data_dbscan <- pca_data %>% select(Dim.1, Dim.2)
+pca_data_dbscan <- pca_data %>% select(`Volume Sistema Penale Esterno`, `Preferenza Soluzioni Riabilitative Moderne`)
 
 # Esegui il clustering DBSCAN
 # Parametri eps e minPts devono essere scelti con attenzione (eps è la distanza massima per la vicinanza)
@@ -511,7 +543,7 @@ final_data_dbscan=cbind(pca_data_dbscan, Cluster=dbscan_result$cluster)
 table(dbscan_result$cluster)
 
 # Crea una mappa dei cluster (colorata in base al cluster)
-ggplot(final_data_dbscan, aes(x = Dim.1, y = Dim.2, color = factor(dbscan_result$cluster))) +
+ggplot(final_data_dbscan, aes(x = `Volume Sistema Penale Esterno`, y = `Preferenza Soluzioni Riabilitative Moderne`, color = factor(dbscan_result$cluster))) +
   geom_point() +
   labs(title = "DBSCAN Clustering", color = "Cluster") +
   theme_minimal()
@@ -528,7 +560,7 @@ final_data_dbscan$Region <- pca_data$Region
 final_data_dbscan$Municipality <- pca_data$Municipality
 
 # Crea una mappa dei cluster (colorata in base al cluster)
-ggplot(final_data_dbscan, aes(x = Dim.1, y = Dim.2, color = factor(dbscan_result$cluster))) +
+ggplot(final_data_dbscan, aes(x = `Volume Sistema Penale Esterno`, y = `Preferenza Soluzioni Riabilitative Moderne`, color = factor(dbscan_result$cluster))) +
   geom_point() +
   labs(title = "DBSCAN Clustering", color = "Cluster") +
   theme_minimal()
@@ -558,24 +590,5 @@ ggplot(cluster_year, aes(x = Year, y = Count, color = factor(Cluster), group = C
   geom_point(size = 2) +
   labs(title = "Evoluzione Temporale dei Cluster", x = "Anno", y = "Numero di Occorrenze", color = "Cluster") +
   theme_minimal()
-
-# Calcolo delle medie delle variabili numeriche per cluster e regione
-cluster_summary <- final_data_dbscan %>%
-  group_by(Cluster, Region) %>%
-  summarise(across(starts_with("Dim"), mean, na.rm = TRUE)) %>%
-  filter(Cluster != 0)
-
-# Converti in formato lungo per creare una heatmap
-heatmap_data <- cluster_summary %>%
-  pivot_longer(cols = starts_with("Dim"), names_to = "Dimension", values_to = "MeanValue")
-
-# Heatmap
-ggplot(heatmap_data, aes(x = Region, y = Dimension, fill = MeanValue)) +
-  geom_tile(color = "white") +
-  facet_wrap(~ Cluster, ncol = 1) +
-  scale_fill_gradient(low = "blue", high = "red") +
-  labs(title = "Heatmap dei Cluster per Regione e Variabili", x = "Regione", y = "Dimensione", fill = "Valore Medio") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 ```
