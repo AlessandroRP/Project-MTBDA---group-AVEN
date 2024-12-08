@@ -26,7 +26,7 @@ library(RColorBrewer)
 # ~
 
 # Caricamento del file Excel
-data <- read_excel("C:/Users/volan/OneDrive - uniroma1.it/Università/Management Tools for business data analyst/Progetto/Excel/DB Esecuzione penale esterna.xlsx", na= '-')
+data <- read_excel("C:/Users/User/OneDrive/Desktop/Università/MAGISTRALE/MTBDA/Progetto/[01]DB Esecuzione penale esterna.xlsx", na= '-')
 
 # Sostituzione valori da stringa a numerici
 data$"In carico all'inizio dell'anno da periodi precedenti" <- as.numeric(data$"In carico all'inizio dell'anno da periodi precedenti")
@@ -316,11 +316,27 @@ pca_hierarchical$Year <- pca_data$Year
 final_data_hierarchical <- cbind(pca_hierarchical, cluster = groups)
 aggregate(final_data_hierarchical, by=list(cluster=final_data_hierarchical$cluster), mean)
 
+
+# Modifica la colonna Cluster con nomi descrittivi
+final_data_hierarchical$cluster <- factor(
+  final_data_hierarchical$cluster,  # Colonna da convertire
+  levels = c(2, 1, 3),              # Valori originali
+  labels = c("BASSO", "MEDIO", "ALTO")  # Valori desiderati
+)
+
+# Grafico con colori personalizzati
 ggplot(final_data_hierarchical) +
-  aes(x = `Volume Sistema Penale Esterno`, y = `Preferenza Soluzioni Riabilitative Moderne`, colour = as.factor(cluster)) +
-  geom_point(shape = "circle", size = 1.5) +
+  aes(
+    x = `Volume Sistema Penale Esterno`, 
+    y = `Preferenza Soluzioni Riabilitative Moderne`, 
+    colour = cluster, 
+    fill = cluster
+  ) +
+  geom_point(shape = 21, size = 2, stroke = 0.5) +
+  scale_colour_manual(values = c("BASSO" = "red", "MEDIO" = "yellow", "ALTO" = "green")) +
+  scale_fill_manual(values = c("BASSO" = "lightcoral", "MEDIO" = "lightyellow", "ALTO" = "lightgreen")) +
   theme_minimal() +
-  ggtitle("Hierarchical Clustering") +  # Aggiunto il titolo
+  labs(title = "Hierarchical Clustering", x = "PCA 1", y = "PCA 2") +
   theme(plot.title = element_text(hjust = 0.5, size = 14, face = "bold"))
 
 ```
@@ -333,6 +349,7 @@ Esempi di grafici interpretativi K-Mean Clustering
 final_data_kmeans$Region <- pca_data$Region
 final_data_kmeans$Municipality <- pca_data$Municipality
 final_data_kmeans$Year <- pca_data$Year
+
 
 # 1. Distribuzione dei Cluster per Regione
 ggplot(final_data_kmeans, aes(x = Region, fill = as.factor(Cluster))) +
@@ -358,6 +375,7 @@ ggplot(final_data_kmeans, aes(x = Year, y = Region, fill = `Volume Sistema Penal
   theme(
     plot.title = element_text(hjust = 0.5, face = "bold")  # Centra e rende il titolo in grassetto
   )
+
 
 # 3. Distribuzione del Volume Sistema Penale Esterno per Regione e Anno
 p <- ggplot(final_data_kmeans, aes(x = Year, y = `Volume Sistema Penale Esterno`, color = Region)) +
@@ -389,7 +407,6 @@ ggplot(final_data_kmeans, aes(x = `Volume Sistema Penale Esterno`, y = `Preferen
   theme(
     plot.title = element_text(hjust = 0.5, face = "bold")  # Titolo centrato e in grassetto
   )
-
 
 
 # 5. Boxplot dei cluster per PCA 1, suddivisi per Regione
@@ -489,12 +506,9 @@ animated_plot <- plot_ly(performance_by_region_municipality_cluster,
 animated_plot
 
 
-
 # DA QUESTI ULTIMI DUE GRAFICI ANDIAMO A DIRE CHE LA NOSTRA DECISIONE è DI ANALIZZARE SOLO L'ANNO 2023 PERCHè LA SITUAZIONE è MOLTO SIMILE NEI DIVERSI ANNI
 # FOCUS SU 2023 PERCHè RAPPRESENTATIVO ANCHE DEGLI ANNI PRECEDENTI 
 
-
-library(ggrepel)
 
 # 9. Grafico confronto tra zone di riferimento e cluster (pov centroidi)
 # Applica K-means ai centroidi delle regioni
@@ -593,6 +607,5 @@ interactive_plot <- plot_ly(data = interactive_data,
          showlegend = TRUE)
 # Visualizza il grafico
 interactive_plot
-
 
 ```
