@@ -119,7 +119,7 @@ ARIMA_plot
 
 #MANUAL ARIMA
 ts_DATA=as.ts(DATA$Total, frequency = 2, start = c(1991,1))
-ts_DATA <- diff(ts_DATA, differences = 2)
+#ts_DATA <- diff(ts_DATA, differences = 2)
 
 ggtsdisplay(ts_DATA)
 ggAcf(ts_DATA,lag.max = 70)+theme_bw()+ylab(label="Totale")+
@@ -127,7 +127,12 @@ ggAcf(ts_DATA,lag.max = 70)+theme_bw()+ylab(label="Totale")+
 ggPacf(ts_DATA,lag.max = 70)+theme_bw()+ylab(label="Totale")+
   labs(title="Differenciated PACF")
 
-ARIMA_model_2 <- Arima(ts_DATA, order=c(1,2,7))
+ARIMA_model_2 <- auto.arima(ts_DATA, d=2, start.p=1, max.p=1, 
+                            start.q=7, max.q=7, stepwise=FALSE, 
+                            approximation=FALSE, seasonal=F)
+
+summary(ARIMA_model_2)
+Box.test(ARIMA_model_2$residuals, lag = 60, type = "Lj")
 
 ggAcf(ARIMA_model_2$residuals,lag.max = 60)+
   ggtitle("ACF of ARIMA Model Residuals") +
@@ -139,9 +144,6 @@ ggPacf(ARIMA_model_2$residuals,lag.max = 60)+
   theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5, size = 14, 
                                   face = "bold"))
-
-summary(ARIMA_model_2)
-Box.test(ARIMA_model_2$residuals, lag = 60, type = "Lj")
 
 DATA$ARIMA=fitted(ARIMA_model_2)
 ARIMA_plot<-ggplot(DATA,aes(x=Data_Rilevazione))+
@@ -171,7 +173,7 @@ autoplot(ARIMA_forecast) +
   ylab("Total") +
   scale_x_continuous(breaks = scales::pretty_breaks(n = 12), 
                      labels = function(x) as.integer(1991 + (x-1)/2)) +
-  scale_y_continuous(breaks = seq(20000, 80000, by = 20000), 
+  scale_y_continuous(breaks = seq(0, 250000, by = 50000), 
                      labels = function(x) paste0(x / 1000, "k")) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
