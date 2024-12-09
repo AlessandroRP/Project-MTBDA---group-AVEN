@@ -199,3 +199,18 @@ ggplot(Merged_Data) +
 
 
 ```
+
+```{r CONCLUSIONI}
+# Salute e Sicurezza:
+# I tassi di suicidi e decessi per cause naturali evidenziano problematiche rilevanti all'interno degli istituti penitenziari. È essenziale rafforzare i servizi sanitari e le politiche di supporto psicologico, con interventi mirati a prevenire comportamenti autolesionistici e a migliorare le condizioni generali di vita dei detenuti.
+# 
+# Misure Alternative:
+# La crescita osservata nell'adozione di misure alternative alla detenzione rappresenta un segnale positivo. È importante continuare su questa strada, promuovendo ulteriormente queste soluzioni per migliorare l’efficacia del sistema giudiziario e favorire il reinserimento sociale.
+# 
+# Riforme Politiche:
+# I dati evidenziano la necessità di politiche più incisive incentrate sulla giustizia riparativa e sul sostegno ai detenuti durante e dopo il periodo di detenzione. Un approccio più inclusivo potrebbe contribuire a ridurre episodi critici e a garantire una gestione più umana e sostenibile del sistema carcerario.
+
+```
+
+
+
