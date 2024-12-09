@@ -248,7 +248,7 @@ ggplot(aggregate_data, aes(x = Regione, y = PercentualeStranieriMedia, fill = as
 ```
 
 
-Hierarchical Clustering
+Hierarchical Clustering (La facciamo per un ulteriore check sul numero di cluster)
 ```{r}
 
 # Selezioniamo le variabili
@@ -315,5 +315,50 @@ ggplot(final_data, aes(x = `Percentuale Sovraffollamento`, y = `Percentuale Stra
     "turquoise", "gray", "darkorange", "navy"
   )) +
   theme(legend.title = element_blank())  # Rimuove il titolo della legenda
+
+```
+
+Interpretazioni
+```{r}
+# 1. Analisi generale della relazione Sovraffollamento-Stranieri
+#Grafico scatter Sovraffollamento vs. Percentuale di Stranieri:
+# Se c'è una tendenza visibile (ad esempio, un aumento della percentuale di stranieri associato a un sovraffollamento maggiore), puoi concludere che esiste una correlazione tra le due variabili.
+# Se i punti sono ben distribuiti senza un pattern chiaro, non ci sarebbe una relazione diretta evidente.
+# Interpretazione:
+# Una relazione positiva (più stranieri → più sovraffollamento) potrebbe suggerire che i detenuti stranieri siano una componente significativa nei contesti di maggiore sovraffollamento.
+# Cluster specifici con valori estremi (ad esempio, alto sovraffollamento ma pochi stranieri) possono rappresentare eccezioni o condizioni locali particolari.
+
+
+#2. Analisi delle Regioni
+#Grafico a barre della media di Sovraffollamento e Stranieri per Regione:
+#Le regioni con valori medi più alti (sia per sovraffollamento sia per stranieri) potrebbero richiedere interventi mirati.
+#Confrontando Nord, Centro e Sud, puoi verificare se ci sono differenze sistematiche tra le macro-aree geografiche.
+#Interpretazione:
+#Se trovi che il Sud ha valori medi più bassi di percentuale di stranieri ma alti tassi di sovraffollamento, potresti concludere che le condizioni locali (infrastrutture o politiche regionali) contribuiscono significativamente al sovraffollamento.
+#Il Nord potrebbe presentare un'elevata percentuale di stranieri, riflettendo flussi migratori maggiori.
+
+
+#3. Analisi dei Cluster
+#Grafico boxplot per Sovraffollamento e Stranieri nei Cluster:
+#I cluster mostrano come le province/regione siano suddivise in base a caratteristiche simili.
+#Analizzando i boxplot, puoi identificare differenze significative tra i gruppi:
+#Cluster con valori mediani bassi di sovraffollamento e alta dispersione indicano province/regione più diversificate.
+#Cluster con valori mediani alti di sovraffollamento suggeriscono che la pressione sulle strutture è sistemica.
+#Interpretazione:
+#Un cluster potrebbe rappresentare aree ben organizzate, con basso sovraffollamento e una gestione efficace dei detenuti.
+#Un altro cluster potrebbe includere aree critiche, con infrastrutture sotto pressione e problemi di gestione.
+
+#4. Silhouette e numero di cluster
+#L’analisi di silhouette e WSS per il K-Means ti ha permesso di scegliere il numero ottimale di cluster.
+#Se hai scelto 4 cluster, l'interpretazione dovrebbe essere basata su ciò che ogni cluster rappresenta:
+#Cluster 1: Province con basso sovraffollamento e pochi stranieri.
+#Cluster 2: Province con alto sovraffollamento e pochi stranieri.
+#Cluster 3: Province con alto sovraffollamento e molti stranieri.
+#Cluster 4: Province con basso sovraffollamento e molti stranieri.
+#Interpretazione:
+#Ogni cluster può guidare politiche specifiche:
+#Cluster 3 potrebbe richiedere interventi infrastrutturali immediati.
+#Cluster 1 potrebbe rappresentare un modello da replicare.
+
 
 ```
