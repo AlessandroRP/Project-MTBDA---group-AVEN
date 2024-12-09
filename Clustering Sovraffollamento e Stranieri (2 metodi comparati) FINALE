@@ -21,10 +21,9 @@ library(tidyr)
 library(dbscan)
 library(reshape2)
 library(plotly)
-# ~
 
 # Caricamento del file Excel
-data <- read_excel("[03]Detenuti italiani e stranieri al 31 dicembre 2023.xlsx")
+data <- read_excel("C:/Users/volan/OneDrive - uniroma1.it/Università/Management Tools for business data analyst/Progetto/Excel/[03]Detenuti italiani e stranieri al 31 dicembre 2023.xlsx")
 
 # Filtraggio colonne 
 data <- data[c(1,2,5,7)]
@@ -32,12 +31,12 @@ data <- data[c(1,2,5,7)]
 # Selezione delle variabili numeriche
 data_numeric <- data %>% select(-`Regione Di Detenzione`, - `Sigla Provincia`)
 
-# Sostituzione dei NA con la media delle colonne
-data_cleaned <- data_numeric %>%
-  mutate(across(everything(), ~ ifelse(is.na(.), 0, .)))
+# Sostituzione dei NA con la media delle colonne (L'HO TOLTO PERCHè L'ABBIAMO GIà FATTO PRIMA)
+#data_cleaned <- data_numeric %>%
+#  mutate(across(everything(), ~ ifelse(is.na(.), 0, .)))
 
 # Standardizzazione delle variabili numeriche
-data_scaled <- scale(data_cleaned)
+data_scaled <- scale(data_numeric)
 
 # Creazione DataFrame
 df <- as.data.frame(data_scaled)
@@ -56,12 +55,19 @@ Data visual
 ggplot(df, aes(x = `Percentuale Sovraffollamento`, y = `Percentuale Stranieri`, color = Regione)) +
   geom_point(size = 3) +
   theme_minimal() +
-  labs(title = "Proiezione con regioni colorate (palette personalizzata)",
-       x = "Percentuale Sovraffollamento", y = "Percentuale stranieri") +
+  labs(
+    title = "Relazione tra Sovraffollamento e Percentuale di Stranieri nelle Regioni",
+    x = "Percentuale Sovraffollamento",
+    y = "Percentuale stranieri"
+  ) +
   scale_color_manual(values = c(
     "red", "blue", "green", "orange", "purple", "brown", "pink", "cyan", "yellow", "black",
     "darkred", "darkblue", "darkgreen", "gold", "violet", "chocolate", "turquoise", "gray", "darkorange", "navy"
-  ))
+  )) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14)
+  )
+
 
 # Vediamo se c'è una correlazine in base alla posizione territoriale (Nord, Sud , Centro)
 # Calcola i centroidi delle regioni
@@ -117,55 +123,127 @@ Esempi di grafici interpretativi K-Mean Clustering
 # Prima di tutto, aggiungiamo la colonna dei cluster al dataset per poter fare le visualizzazioni
 df$Cluster <- km.res.2$cluster
 
+
 # 1. Grafico della distribuzione dei cluster nelle prime due componenti principali
 ggplot(df, aes(x = `Percentuale Sovraffollamento`, y = `Percentuale Stranieri`, color = as.factor(Cluster))) +
   geom_point(size = 3) +
   theme_minimal() +
-  labs(title = "Distribuzione dei Cluster",
-       x = "Percentuale Sovraffollamento", y = "Percentuale Stranieri", color = "Cluster")
+  labs(
+    title = "Relazione tra Sovraffollamento e Percentuale di Stranieri nei Cluster",
+    x = "Percentuale Sovraffollamento",
+    y = "Percentuale Stranieri",
+    color = "Cluster"
+  ) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),  
+    legend.title = element_text(face = "bold"),  
+    axis.text = element_text(size = 10),  
+    legend.text = element_text(size = 10) 
+  )
+
 
 # 2. Grafico dei cluster suddivisi per Regione
-ggplot(df, aes(x = `Percentuale Sovraffollamento`, y = `Percentuale Stranieri`, color = Regione)) +
-  geom_point(aes(shape = as.factor(Cluster)), size = 3) +
+ggplot(df, aes(x = `Percentuale Sovraffollamento`, y = `Percentuale Stranieri`, color = Regione, shape = as.factor(Cluster))) +
+  geom_point(size = 4, alpha = 0.8) +  
   theme_minimal() +
-  labs(title = "Distribuzione dei Cluster Suddivisi per Regione",
-       x = "Percentuale Sovraffollamento", y = "Percentuale Stranieri", color = "Regione", shape = "Cluster") +
+  labs(
+    title = "Distribuzione dei Cluster Suddivisi per Regione",
+    x = "Percentuale Sovraffollamento",
+    y = "Percentuale Stranieri",
+    color = "Regione",
+    shape = "Cluster"
+  ) +
   scale_color_manual(values = c(
     "red", "blue", "green", "orange", "purple", "brown", "pink", "cyan", "yellow", "black",
     "darkred", "darkblue", "darkgreen", "gold", "violet", "chocolate", "turquoise", "gray", "darkorange", "navy"
-  ))
+  )) +
+  scale_shape_manual(values = c(
+    "1" = 16,  
+    "2" = 17,  
+    "3" = 15,  
+    "4" = 18    
+  )) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),  
+    legend.position = "top",  
+    legend.box = "horizontal",  
+    legend.box.just = "center",  
+    legend.spacing.y = unit(0.3, "cm"),  
+    legend.text = element_text(size = 10),  
+    legend.title = element_text(face = "bold", size = 11),  
+    legend.justification = "center"  
+  ) +
+  guides(
+    color = guide_legend(title.position = "top", title.hjust = 0.5), 
+    shape = guide_legend(title.position = "left", title.hjust = 0.5)  
+  )
+
 
 # 3. Boxplot dei cluster per variabili specifiche, suddivisi per Regione
 ggplot(df, aes(x = as.factor(Cluster), y = `Percentuale Sovraffollamento`, fill = as.factor(Cluster))) +
-  geom_boxplot() +
+  geom_boxplot(outlier.shape = NA, alpha = 0.6) +  # Boxplot semi-trasparente senza outlier visibili
+  geom_jitter(aes(color = as.factor(Cluster)), width = 0.2, size = 1.5, alpha = 0.8) +  # Aggiunge punti jitterati
   theme_minimal() +
-  labs(title = "Distribuzione per Cluster: Sovraffollamento",
-       x = "Cluster", y = "Sovraffollamento") +
-  scale_fill_manual(values = c("lightblue", "lightgreen", "lightcoral", "gray"))
+  labs(
+    title = "Distribuzione per cluster: Sovraffollamento",
+    x = "Cluster",
+    y = "Percentuale Sovraffollamento"
+  ) +
+  scale_fill_manual(values = c("lightblue", "lightgreen", "lightcoral", "gray")) +  # Colori per i boxplot
+  scale_color_manual(values = c("blue", "green", "red", "darkgray")) +  # Colori per i punti jitterati
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),  # Titolo centrato e in grassetto
+    legend.position = "none",  # Rimuove la legenda
+    axis.text = element_text(size = 10)  # Testo degli assi migliorato
+  )
+
 
 # 4. Grafico a barre della media di sovraffollamento per ciascun cluster, diviso per Regione
 aggregate_data <- df %>%
   group_by(Cluster, Regione) %>%
   summarise(SovraffollamentoMedio = mean(`Percentuale Sovraffollamento`))
-
 ggplot(aggregate_data, aes(x = Regione, y = SovraffollamentoMedio, fill = as.factor(Cluster))) +
   geom_bar(stat = "identity", position = "dodge") +
   theme_minimal() +
-  labs(title = "Media Percentuale Sovraffollamento per Regione e Cluster",
-       x = "Regione", y = "Percentuale Sovraffollamento") +
-  scale_fill_manual(values = c("lightblue", "lightgreen", "lightcoral", "gray"))
+  labs(
+    title = "Media Percentuale Sovraffollamento per Regione e Cluster",
+    x = "Regione",
+    y = "Percentuale Sovraffollamento",
+    fill = "Cluster"
+  ) +
+  scale_fill_manual(values = c("lightblue", "lightgreen", "lightcoral", "gray")) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),  # Titolo centrato e in grassetto
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 10),  # Rotazione delle etichette sull'asse X
+    axis.text.y = element_text(size = 10),  # Testo sull'asse Y migliorato
+    legend.title = element_text(face = "bold", size = 11),  # Titolo della legenda in grassetto
+    legend.text = element_text(size = 10)  # Testo della legenda più leggibile
+  )
+
 
 # 5. Grafico a barre della media di presenza stranieri per ciascun cluster, diviso per Regione
 aggregate_data <- df %>%
   group_by(Cluster, Regione) %>%
   summarise(PercentualeStranieriMedia = mean(`Percentuale Stranieri`))
-
 ggplot(aggregate_data, aes(x = Regione, y = PercentualeStranieriMedia, fill = as.factor(Cluster))) +
   geom_bar(stat = "identity", position = "dodge") +
   theme_minimal() +
-  labs(title = "Media Percentuale Stranieri per Regione e Cluster",
-       x = "Regione", y = "Percentuale Sovraffollamento") +
-  scale_fill_manual(values = c("lightblue", "lightgreen", "lightcoral", "gray"))
+  labs(
+    title = "Media Percentuale Stranieri per Regione e Cluster",
+    x = "Regione",
+    y = "Percentuale Stranieri",
+    fill = "Cluster"
+  ) +
+  scale_fill_manual(values = c("lightblue", "lightgreen", "lightcoral", "gray")) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),  # Titolo centrato e in grassetto
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 10),  # Rotazione delle etichette sull'asse X
+    axis.text.y = element_text(size = 10),  # Testo sull'asse Y migliorato
+    legend.title = element_text(face = "bold", size = 11),  # Titolo della legenda in grassetto
+    legend.text = element_text(size = 10)  # Testo della legenda più leggibile
+  )
+
+
 
 ```
 
@@ -237,84 +315,5 @@ ggplot(final_data, aes(x = `Percentuale Sovraffollamento`, y = `Percentuale Stra
     "turquoise", "gray", "darkorange", "navy"
   )) +
   theme(legend.title = element_blank())  # Rimuove il titolo della legenda
-
-```
-
-
-DBScan Clustering
-```{r}
-
-# Selezioniamo le variabili
-df_dbscan <- df %>% select(-Regione, -Provincia)
-
-# Esegui il clustering DBSCAN
-# Parametri eps e minPts devono essere scelti con attenzione (eps è la distanza massima per la vicinanza)
-# minPts è il numero minimo di punti per formare un cluster
-
-# Selection of minpts: log(n) ---> log(189) = 5.2
-# Selection of EPS using k=datasetdimension + 1
-
-kNNdistplot(df_dbscan, k = 3)
-abline(h=0.305, col = "red", lty=2)
-
-dbscan_result <- dbscan(df_dbscan, eps = 0.305, minPts = 5)
-dbscan_result
-
-hullplot(x = df_dbscan, cl = dbscan_result) # grafico delle aree convesse
-
-final_data=cbind(df_dbscan, Cluster=dbscan_result$cluster)
-
-# Visualizza i cluster
-table(dbscan_result$cluster)
-
-# Crea una mappa dei cluster (colorata in base al cluster)
-ggplot(df, aes(x = `Percentuale Sovraffollamento`, y = `Percentuale stranieri`, color = factor(dbscan_result$cluster))) +
-  geom_point() +
-  labs(title = "DBSCAN Clustering", color = "Cluster") +
-  theme_minimal()
-
-# Se vuoi aggiungere le informazioni sui cluster ai dati originali
-df$DBSCAN_Cluster <- dbscan_result$cluster
-
-# Visualizza i primi 6 dati con cluster assegnato
-head(df)
-
-```
-
-
-Esempi di grafici interpretativi su DBScan Clustering
-```{r}
-
-# Contare il numero di regioni per cluster
-cluster_counts <- df %>%
-  group_by(DBSCAN_Cluster, Regione) %>%
-  summarise(Count = n()) %>%
-  filter(DBSCAN_Cluster != 0) # Ignora il cluster di rumore (0)
-
-# Grafico a barre per distribuzione delle regioni nei cluster
-ggplot(cluster_counts, aes(x = factor(DBSCAN_Cluster), y = Count, fill = Regione)) +
-  geom_bar(stat = "identity", position = "dodge") +
-  labs(title = "Distribuzione delle Regioni nei Cluster", x = "Cluster", y = "Numero di Occorrenze") +
-  scale_fill_brewer(palette = "Paired") +
-  theme_minimal()
-
-# Calcolo delle medie delle variabili numeriche per cluster e regione
-cluster_summary <- df %>%
-  group_by(DBSCAN_Cluster, Regione) %>%
-  summarise(across(starts_with("Perc"), mean, na.rm = TRUE)) %>%
-  filter(DBSCAN_Cluster != 0)
-
-# Converti in formato lungo per creare una heatmap
-heatmap_data <- cluster_summary %>%
-  pivot_longer(cols = starts_with("Perc"), names_to = "Dimension", values_to = "MeanValue")
-
-# Heatmap
-ggplot(heatmap_data, aes(x = Regione, y = Dimension, fill = MeanValue)) +
-  geom_tile(color = "white") +
-  facet_wrap(~ DBSCAN_Cluster, ncol = 1) +
-  scale_fill_gradient(low = "blue", high = "red") +
-  labs(title = "Heatmap dei Cluster per Regione e Variabili", x = "Regione", y = "Dimensione", fill = "Valore Medio") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 ```
