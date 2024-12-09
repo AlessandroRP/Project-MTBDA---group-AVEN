@@ -160,9 +160,7 @@ ARIMA_plot
 
 ```
 
-
 ```{r ARIMA FORECAST}
-
 ARIMA_forecast <- forecast(ARIMA_model, h = 15)
 #h stands for the number of periods to forecast, what we must understand is how to compare a period to a quantity of time.
 
@@ -173,8 +171,138 @@ autoplot(ARIMA_forecast) +
   ylab("Total") +
   scale_x_continuous(breaks = scales::pretty_breaks(n = 12), 
                      labels = function(x) as.integer(1991 + (x-1)/2)) +
-  scale_y_continuous(breaks = seq(0, 250000, by = 50000), 
+  scale_y_continuous(breaks = seq(0, 100000, by = 25000), 
+                     limits = c(25000, 100000), 
                      labels = function(x) paste0(x / 1000, "k")) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
+value <- DATA[nrow(DATA), ncol(DATA)]
+print(value)
+
 ```
+
+```{r EDA2}
+DATA_2 <- read_excel("C:/Users/Aless/Desktop/Magistrale/I° ANNO/Management Tools for Business Data Analyst/[00]PROJECT/DATASETS/[01]DB Esecuzione penale esterna.xlsx", na = '-')
+#[01]DB Esecuzione penale esterna
+
+# Sostituzione valori da stringa a numerici
+DATA_2$"In carico all'inizio dell'anno da periodi precedenti" <- as.numeric(DATA_2$"In carico all'inizio dell'anno da periodi precedenti")
+DATA_2$"Presi in carico nell'anno" <- as.numeric(DATA_2$"Presi in carico nell'anno")
+DATA_2$"Totale soggetti in carico" <- as.numeric(DATA_2$"Totale soggetti in carico")
+DATA_2$"Affidamento in prova al servizio sociale" <- as.numeric(DATA_2$"Affidamento in prova al servizio sociale")
+DATA_2$"Detenzione domiciliare" <- as.numeric(DATA_2$"Detenzione domiciliare")
+DATA_2$Semilibertà <- as.numeric(DATA_2$Semilibertà)
+DATA_2$Semidetenzione <- as.numeric(DATA_2$Semidetenzione)
+DATA_2$"Libertà controllata" <- as.numeric(DATA_2$"Libertà controllata")
+DATA_2$"Detenzione domiciliare sostitutiva" <- as.numeric(DATA_2$"Detenzione domiciliare sostitutiva")
+DATA_2$"Semilibertà sostitutiva" <- as.numeric(DATA_2$"Semilibertà sostitutiva")
+DATA_2$"Lavoro di pubblica utilità sostitutivo" <- as.numeric(DATA_2$"Lavoro di pubblica utilità sostitutivo")
+DATA_2$"Libertà vigilata" <- as.numeric(DATA_2$"Libertà vigilata")
+DATA_2$"Lavoro di pubblica utilità - violazione legge sugli stupefacenti" <- as.numeric(DATA_2$"Lavoro di pubblica utilità - violazione legge sugli stupefacenti")
+DATA_2$"Lavoro di pubblica utilità - violazione codice della strada" <- as.numeric(DATA_2$"Lavoro di pubblica utilità - violazione codice della strada")
+DATA_2$"Sospensione condizionale della pena" <- as.numeric(DATA_2$"Sospensione condizionale della pena")
+DATA_2$"Messa alla prova" <- as.numeric(DATA_2$"Messa alla prova")
+
+#Elimination of these two coloumns
+DATA_2 <- DATA_2 %>% select(-Region, -Municipality, 
+                            -`Totale soggetti in carico`)
+
+#replacing NA values with 0, in order to create a new coloumn which sums all the other coloumns
+DATA_2[is.na(DATA_2)] <- 0
+DATA_2$Totale <- rowSums(DATA_2[, -1])
+DATA_2 <- DATA_2 %>% select(Year, Totale)
+
+#Sum the columns by Year
+DATA_2 <- DATA_2 %>%
+  group_by(Year) %>%
+  summarize(Totale = sum(Totale))
+
+colnames(DATA_2)[2] <- "Detenuti in Misure Alternative"
+# DATA_2$"Detenuti in Misure Alternative" <- 
+#   as.numeric(DATA_2$"Detenuti in Misure Alternative")
+
+DATA_2 <- data.frame(DATA_2)
+
+#Plot the data
+ggplot(DATA_2, aes(x = Year, y = Detenuti.in.Misure.Alternative)) +
+  geom_line(color = "red", size = 0.8) +
+  theme_minimal() +
+  scale_x_continuous(breaks = 2018:2023) +
+  scale_y_continuous(breaks = seq(250000, 400000, by = 50000), 
+                     limits = c(250000, 400000), 
+                     labels = function(x) paste0(x / 1000, "k")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "Anno", y = "Detenuti in Misure Alternative")
+
+#Plot 2
+ggplot(DATA_2, aes(x = Year, y = Detenuti.in.Misure.Alternative)) +
+  geom_bar(stat = "identity", aes(fill = factor(Year)), alpha = 0.4, 
+           show.legend = FALSE) + 
+  scale_x_continuous(breaks = 2018:2023) + 
+  scale_y_continuous(breaks = seq(0, 400000, by = 100000), 
+                     limits = c(0, 400000), 
+                     labels = function(x) paste0(x / 1000, "k")) +
+  theme_minimal() + 
+  labs(x = "Anno", y = "Detenuti in Misure Alternative")
+
+```
+
+```{r EDA3}
+DATA_3 <- read_excel("C:/Users/Aless/Desktop/Magistrale/I° ANNO/Management Tools for Business Data Analyst/[00]PROJECT/DATASETS/[03]Detenuti italiani e stranieri al 31 dicembre 2023.xlsx", na = '-')
+#[03]Detenuti italiani e stranieri al 31 dicembre 2023
+DATA_3 <- data.frame(DATA_3)
+
+DATA_3 <- DATA_3 %>% select(Regione.Di.Detenzione, 
+                            Capienza.Regolamentare, 
+                            Detenuti.presenti..totale.)
+
+colnames(DATA_3)[1] <- "Regione"
+colnames(DATA_3)[2] <- "Capienza"
+colnames(DATA_3)[3] <- "Detenuti presenti"
+DATA_3 <- DATA_3 %>% filter(Regione != "Totale")
+
+DATA_3$Capienza <- as.numeric(DATA_3$Capienza)
+DATA_3$Detenuti.presenti <- as.numeric(DATA_3$"Detenuti presenti")
+
+#Sum the columns by Region
+DATA_3 <- DATA_3 %>%
+  group_by(Regione) %>%
+  summarize(capienza = sum(Capienza), 
+            Detenuti.presenti = sum(Detenuti.presenti))
+
+#Creation of a new coloumn
+DATA_3$"Indice di Saturazione" <- 
+  DATA_3$Detenuti.presenti/DATA_3$capienza
+# Converti in formato da %
+DATA_3$"Tasso di Saturazione" <- 
+  paste0(round(DATA_3$"Indice di Saturazione" * 100, 2))
+DATA_3$"Tasso di Saturazione" <- as.numeric(DATA_3$"Tasso di Saturazione")
+
+
+#Plot the data
+ggplot(DATA_3, aes(x = reorder(Regione, `Indice di Saturazione`), 
+                   y = `Indice di Saturazione`)) +
+  geom_bar(stat = "identity", fill = "steelblue", 
+           alpha = 0.8) +
+  coord_flip() + 
+  theme_minimal() +
+  scale_y_continuous(labels = scales::percent) + 
+  labs(title = "Tasso di Saturazione per Regione",
+    x = "Regione",
+    y = "Tasso di Saturazione (%)")
+
+#FARE UNA MAPPA GEOGRAFICA!!!!!
+
+```
+
+```{r CONCLUSIONI}
+# Conclusioni finali:
+# Utilizzando il metodo di previsione auto ARIMA e selezionando i parametri ottimali del modello (minimizzando l'AICc), abbiamo stimato che il numero di detenuti dovrebbe stabilizzarsi intorno a 62.000.
+#
+#Successivamente, abbiamo condotto un'analisi qualitativa sul trend delle misure alternative alla detenzione, osservando una leggera crescita nel periodo 2018-2023, fino a raggiungere circa 380.000 persone impiegate in tali misure. Questi dati evidenziano come le carceri affrontino un grave problema di sovraffollamento. Incrementare l'uso delle misure alternative potrebbe rappresentare una soluzione efficace per ridurre la congestione carceraria e favorire la reintegrazione degli ex detenuti nella società.
+#
+#Infine abbiamo determinato che tra tutte le regioni Italiane solamente quattro regioni: Valle D'Aosta, Sardegna, Trentino Alto Adige e Toscana, rispettano la capienza massima. Mentre le regioni piu critiche sono la Puglia e la Lombardia, nonostante il primato nelle misure alternative alla detenzione.
+
+```
+
+
