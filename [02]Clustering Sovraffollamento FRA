@@ -71,12 +71,18 @@ data_aggregated <- df %>%
     Media_Straniere = mean(`Percentuale stranieri`, na.rm = TRUE)
   )
 
-# Scatter Plot: Percentuale Sovraffollamento vs Percentuale Stranieri (Aggregato per Regione)
+# Generare una palette di colori distinti
+palette <- distinctColorPalette(length(unique(data_aggregated$Regione)))
+
+# Creare il grafico con colori distinti
 ggplot(data_aggregated, aes(x = Media_Sovraffollamento, y = Media_Straniere)) +
   geom_point(aes(color = Regione), size = 3) + 
-  labs(title = "Scatter Plot Aggregato: Sovraffollamento vs Stranieri per Regione",
-       x = "Media Percentuale Sovraffollamento",
-       y = "Media Percentuale Stranieri") +
+  scale_color_manual(values = palette) + 
+  labs(
+    title = "Scatter Plot Aggregato: Sovraffollamento vs Stranieri per Regione",
+    x = "Media Percentuale Sovraffollamento",
+    y = "Media Percentuale Stranieri"
+  ) +
   theme_minimal() +
   theme(legend.position = "bottom")
 
