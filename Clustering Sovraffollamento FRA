@@ -1,0 +1,541 @@
+---
+title: "R Notebook"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+Data preparation
+```{r}
+
+options(scipen = 99999999)
+library(cluster)
+library(ComplexUpset)
+library(readr)
+library(readxl)
+library(ggplot2)
+library(dplyr)
+library(FactoMineR)
+library(factoextra)
+library(tidyr)
+library(dbscan)
+library(reshape2)
+library(plotly)
+library(GGally)
+
+# Caricamento del file Excel
+data <- read_excel("[03]Detenuti italiani e stranieri al 31 dicembre 2023.xlsx")
+
+# Filtraggio colonne 
+data <- data[c(1,2,5,7)]
+
+# Selezione delle variabili numeriche
+data_numeric <- data %>% select(-`Regione Di Detenzione`, - `Sigla Provincia`)
+
+# Sostituzione dei NA con la media delle colonne (L'HO TOLTO PERCHè L'ABBIAMO GIà FATTO PRIMA)
+#data_cleaned <- data_numeric %>%
+#  mutate(across(everything(), ~ ifelse(is.na(.), 0, .)))
+
+# Standardizzazione delle variabili numeriche
+data_scaled <- scale(data_numeric)
+
+# Creazione DataFrame
+df <- as.data.frame(data_scaled)
+
+# Aggiunta delle variabili Regione Di Detenzione e Sigla Provincia
+df$Regione <- data$`Regione Di Detenzione`
+df$Provincia <- data$`Sigla Provincia`
+
+```
+
+
+Data visual
+```{r}
+
+# 1. Scatter Plot distribuzione Percentuale Sovraffollamento e Percentuale Stranieri
+ggplot(df, aes(x = `Percentuale Sovraffollamento`, y = `Percentuale stranieri`)) +
+  geom_point(aes(color = Regione), size = 2) + 
+  labs(title = "Scatter Plot: Percentuale Sovraffollamento vs Percentuale Stranieri",
+       x = "Percentuale Sovraffollamento",
+       y = "Percentuale Stranieri") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+
+# 2. Scatter Plot aggregato per regioni su distribuzione Percentuale Sovraffollamento e Percentuale Stranieri
+# Calcolare i valori aggregati per regione
+data_aggregated <- df %>%
+  group_by(Regione) %>%
+  summarise(
+    Media_Sovraffollamento = mean(`Percentuale Sovraffollamento`, na.rm = TRUE),
+    Media_Straniere = mean(`Percentuale stranieri`, na.rm = TRUE)
+  )
+
+# Scatter Plot: Percentuale Sovraffollamento vs Percentuale Stranieri (Aggregato per Regione)
+ggplot(data_aggregated, aes(x = Media_Sovraffollamento, y = Media_Straniere)) +
+  geom_point(aes(color = Regione), size = 3) + 
+  labs(title = "Scatter Plot Aggregato: Sovraffollamento vs Stranieri per Regione",
+       x = "Media Percentuale Sovraffollamento",
+       y = "Media Percentuale Stranieri") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+
+# 3. Box Plot: Percentuale Sovraffollamento
+ggplot(df, aes(x = Regione, y = `Percentuale Sovraffollamento`, fill = Regione)) +
+  geom_boxplot() + 
+  labs(title = "Box Plot: Percentuale Sovraffollamento per Regione",
+       x = "Regione",
+       y = "Percentuale Sovraffollamento") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Nomi delle regioni obliqui
+
+# 3. Box Plot: Percentuale Stranieri
+ggplot(df, aes(x = Regione, y = `Percentuale stranieri`, fill = Regione)) +
+  geom_boxplot() + 
+  labs(title = "Box Plot: Percentuale Stranieri per Regione",
+       x = "Regione",
+       y = "Percentuale Stranieri") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Nomi delle regioni obliqui
+
+# Interpretazione: in base al posizionamento della mediana possiamo concludere quali regioni hanno valori più elevati di sovraffollamento/stranieri. In base all'ampiezza del box possiamo dire che alcune regioni hanno valori più o meno concentrati (ad es. box molto ampio significa valori poco uniformi all'interno della stessa regione). Porre l'attenzione anche sugli outliers.
+
+
+# 4. Istogramma: Percentuale Sovraffollamento
+ggplot(df, aes(x = `Percentuale Sovraffollamento`)) +
+  geom_histogram(binwidth = 0.1, fill = "lightcoral", color = "black", alpha = 0.7) +
+  labs(title = "Istogramma: Percentuale Sovraffollamento",
+       x = "Percentuale Sovraffollamento",
+       y = "Frequenza") +
+  theme_minimal()
+
+# 4. Istogramma: Percentuale Stranieri
+ggplot(df, aes(x = `Percentuale stranieri`)) +
+  geom_histogram(binwidth = 0.1, fill = "skyblue", color = "black", alpha = 0.7) +
+  labs(title = "Istogramma: Percentuale Stranieri",
+       x = "Percentuale Stranieri",
+       y = "Frequenza") +
+  theme_minimal()
+
+# 5. Grafico di densità: Percentuale Sovraffollamento
+ggplot(df, aes(x = `Percentuale Sovraffollamento`)) +
+  geom_density(fill = "lightcoral", alpha = 0.5) +
+  labs(title = "Densità: Percentuale Sovraffollamento",
+       x = "Percentuale Sovraffollamento",
+       y = "Densità") +
+  theme_minimal()
+
+# 5. Grafico di densità: Percentuale Stranieri
+ggplot(df, aes(x = `Percentuale stranieri`)) +
+  geom_density(fill = "skyblue", alpha = 0.5) +
+  labs(title = "Densità: Percentuale Stranieri",
+       x = "Percentuale Stranieri",
+       y = "Densità") +
+  theme_minimal()
+
+
+# 6. Heatmap delle correlazioni
+# Calcolo della matrice di correlazione
+cor_matrix <- cor(df %>% select(`Percentuale Sovraffollamento`, `Percentuale stranieri`), use = "complete.obs")
+
+# Conversione della matrice di correlazione in formato long
+cor_data <- as.data.frame(as.table(cor_matrix))
+
+# Heatmap con ggplot2
+ggplot(cor_data, aes(Var1, Var2, fill = Freq)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1, 1), space = "Lab", 
+                       name = "Correlazione") +
+  labs(title = "Heatmap delle Correlazioni",
+       x = "",
+       y = "") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+# Vediamo se c'è una correlazine in base alla posizione territoriale (Nord, Sud , Centro)
+# Calcola i centroidi delle regioni
+region_means <- df %>%
+  group_by(Regione) %>%
+  summarise('Media di Percentuale Sovraffollamento' = mean(`Percentuale Sovraffollamento`), 'Media di Percentuale Stranieri' = mean(`Percentuale stranieri`))
+# Visualizza i centroidi per verifica
+print(region_means)
+
+```
+
+
+K-Mean Clustering
+```{r}
+
+# Selezioniamo le variabili
+df_kmeans <- df %>% select(-Regione, -Provincia)
+
+# Verifica numero ottimale di cluster tramite elbow
+fviz_nbclust(df_kmeans, kmeans, method = "wss")
+
+# Verifica numero ottimale di cluster tramite silohuette
+km.res <- kmeans(df_kmeans, 2)
+sil <- silhouette(km.res$cluster, dist(df_kmeans))
+fviz_silhouette(sil)
+
+km.res <- kmeans(df_kmeans, 3)
+sil <- silhouette(km.res$cluster, dist(df_kmeans))
+fviz_silhouette(sil)
+
+km.res <- kmeans(df_kmeans, 4)
+sil <- silhouette(km.res$cluster, dist(df_kmeans))
+fviz_silhouette(sil)
+
+km.res <- kmeans(df_kmeans, 8)
+sil <- silhouette(km.res$cluster, dist(df_kmeans))
+fviz_silhouette(sil)
+
+# Risultato
+km.res.2 <- kmeans(df_kmeans, 4)
+
+fviz_cluster(km.res.2, data = df_kmeans)+theme_minimal()
+
+# Troviamo la media di ogni cluster
+aggregate(df_kmeans, by=list(cluster=km.res.2$cluster), mean)
+
+final_data <- cbind(df_kmeans, Cluster = km.res.2$cluster)
+
+# Rinomina i cluster con nomi sintetici ed esplicativi
+final_data$Cluster <- factor(final_data$Cluster, 
+                             levels = c(1, 2, 3, 4), 
+                             labels = c("Basso Sovraffollamento, Molti Stranieri",
+                                        "Basso Sovraffollamento, Pochi Stranieri",
+                                        "Alto Sovraffollamento, Pochi Stranieri",
+                                        "Alto Sovraffollamento, Molti Stranieri"))
+
+# Scatter Plot dei cluster con aree colorate
+# Funzione per calcolare i confini (convex hull) per ogni cluster
+convex_hull <- function(data) {
+  data[chull(data$`Percentuale Sovraffollamento`, data$`Percentuale stranieri`), ]
+}
+
+# Calcolo dei poligoni per ciascun cluster
+hulls <- final_data %>%
+  group_by(Cluster) %>%
+  group_modify(~ convex_hull(.))
+
+# Scatter plot con aree colorate
+ggplot() +
+  geom_polygon(data = hulls, aes(x = `Percentuale Sovraffollamento`, 
+                                 y = `Percentuale stranieri`, 
+                                 fill = Cluster, 
+                                 group = Cluster), 
+               alpha = 0.3, color = NA) +  # Aree colorate per cluster
+  geom_point(data = final_data, aes(x = `Percentuale Sovraffollamento`, 
+                                    y = `Percentuale stranieri`, 
+                                    color = Cluster), 
+             size = 3, alpha = 0.7) +  # Punti per le osservazioni
+  scale_fill_manual(values = c("skyblue", "lightgreen", "orange", "lightcoral")) + # Colori per le aree
+  scale_color_manual(values = c("skyblue", "lightgreen", "orange", "lightcoral")) + # Colori per i punti
+  labs(title = "Scatter Plot dei Cluster con Aree Colorate",
+       x = "Percentuale Sovraffollamento",
+       y = "Percentuale Stranieri") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+```
+
+
+Esempi di grafici interpretativi K-Mean Clustering
+```{r}
+
+# Prima di tutto, aggiungiamo la colonna dei cluster al dataset per poter fare le visualizzazioni
+df$Cluster <- final_data$Cluster
+
+
+# 1. Grafico della distribuzione dei cluster
+# Funzione per calcolare i confini (convex hull) per ogni cluster
+convex_hull <- function(data) {
+  data[chull(data$`Percentuale Sovraffollamento`, data$`Percentuale stranieri`), ]
+}
+
+# Calcolo dei poligoni per ciascun cluster
+hulls <- final_data %>%
+  group_by(Cluster) %>%
+  group_modify(~ convex_hull(.))
+
+# Scatter plot con aree colorate
+ggplot() +
+  geom_polygon(data = hulls, aes(x = `Percentuale Sovraffollamento`, 
+                                 y = `Percentuale stranieri`, 
+                                 fill = Cluster, 
+                                 group = Cluster), 
+               alpha = 0.3, color = NA) +  # Aree colorate per cluster
+  geom_point(data = final_data, aes(x = `Percentuale Sovraffollamento`, 
+                                    y = `Percentuale stranieri`, 
+                                    color = Cluster), 
+             size = 3, alpha = 0.7) +  # Punti per le osservazioni
+  scale_fill_manual(values = c("skyblue", "lightgreen", "orange", "lightcoral")) + # Colori per le aree
+  scale_color_manual(values = c("skyblue", "lightgreen", "orange", "lightcoral")) + # Colori per i punti
+  labs(title = "Scatter Plot dei Cluster con Aree Colorate",
+       x = "Percentuale Sovraffollamento",
+       y = "Percentuale Stranieri") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+
+# 2. Distribuzione dei Cluster
+ggplot(final_data, aes(x = Cluster, fill = Cluster)) +
+  geom_bar() +
+  scale_fill_manual(values = c("skyblue", "lightgreen", "orange", "lightcoral")) +  # Colori personalizzati
+  labs(title = "Distribuzione dei Cluster",
+       x = "Cluster",
+       y = "Numero di osservazioni") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+
+# 3. Boxplot dei cluster per Sovraffollamento, suddivisi per Regione
+ggplot(df, aes(x = as.factor(Cluster), y = `Percentuale Sovraffollamento`, fill = as.factor(Cluster))) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.6) +  # Boxplot semi-trasparente senza outlier visibili
+  geom_jitter(aes(color = as.factor(Cluster)), width = 0.2, size = 1.5, alpha = 0.8) +  # Aggiunge punti jitterati
+  theme_minimal() +
+  labs(
+    title = "Distribuzione per cluster: Sovraffollamento",
+    x = "Cluster",
+    y = "Percentuale Sovraffollamento"
+  ) +
+  scale_fill_manual(values = c("skyblue", "lightgreen", "orange", "lightcoral")) +  # Colori per i boxplot
+  scale_color_manual(values = c("blue", "green", "gold", "red")) +  # Colori per i punti jitterati
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),  # Titolo centrato e in grassetto
+    legend.position = "none",  # Rimuove la legenda
+    axis.text = element_text(size = 10)  # Testo degli assi migliorato
+  )
+
+
+# 3. Boxplot dei cluster per Stranieri, suddivisi per Regione
+ggplot(df, aes(x = as.factor(Cluster), y = `Percentuale stranieri`, fill = as.factor(Cluster))) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.6) +  # Boxplot semi-trasparente senza outlier visibili
+  geom_jitter(aes(color = as.factor(Cluster)), width = 0.2, size = 1.5, alpha = 0.8) +  # Aggiunge punti jitterati
+  theme_minimal() +
+  labs(
+    title = "Distribuzione per cluster: Stranieri",
+    x = "Cluster",
+    y = "Percentuale Sovraffollamento"
+  ) +
+  scale_fill_manual(values = c("skyblue", "lightgreen", "orange", "lightcoral")) +  # Colori per i boxplot
+  scale_color_manual(values = c("blue", "green", "gold", "red")) +  # Colori per i punti jitterati
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),  # Titolo centrato e in grassetto
+    legend.position = "none",  # Rimuove la legenda
+    axis.text = element_text(size = 10)  # Testo degli assi migliorato
+  )
+
+
+# 4. Grafico a barre della media di sovraffollamento per ciascun cluster, diviso per Regione
+aggregate_data <- df %>%
+  group_by(Cluster, Regione) %>%
+  summarise(SovraffollamentoMedio = mean(`Percentuale Sovraffollamento`))
+ggplot(aggregate_data, aes(x = Regione, y = SovraffollamentoMedio, fill = as.factor(Cluster))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_minimal() +
+  labs(
+    title = "Media Percentuale Sovraffollamento per Regione e Cluster",
+    x = "Regione",
+    y = "Percentuale Sovraffollamento",
+    fill = "Cluster"
+  ) +
+  scale_fill_manual(values = c("skyblue", "lightgreen", "orange", "lightcoral")) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),  # Titolo centrato e in grassetto
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 10),  # Rotazione delle etichette sull'asse X
+    axis.text.y = element_text(size = 10),  # Testo sull'asse Y migliorato
+    legend.title = element_text(face = "bold", size = 11),  # Titolo della legenda in grassetto
+    legend.text = element_text(size = 10)  # Testo della legenda più leggibile
+  )
+
+
+# 5. Grafico a barre della media di presenza stranieri per ciascun cluster, diviso per Regione
+aggregate_data <- df %>%
+  group_by(Cluster, Regione) %>%
+  summarise(PercentualeStranieriMedia = mean(`Percentuale stranieri`))
+ggplot(aggregate_data, aes(x = Regione, y = PercentualeStranieriMedia, fill = as.factor(Cluster))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_minimal() +
+  labs(
+    title = "Media Percentuale Stranieri per Regione e Cluster",
+    x = "Regione",
+    y = "Percentuale Stranieri",
+    fill = "Cluster"
+  ) +
+  scale_fill_manual(values = c("skyblue", "lightgreen", "orange", "lightcoral")) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),  # Titolo centrato e in grassetto
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 10),  # Rotazione delle etichette sull'asse X
+    axis.text.y = element_text(size = 10),  # Testo sull'asse Y migliorato
+    legend.title = element_text(face = "bold", size = 11),  # Titolo della legenda in grassetto
+    legend.text = element_text(size = 10)  # Testo della legenda più leggibile
+  )
+
+
+# 6. Scatter Plot per regione con colore basato sui cluster
+ggplot(df, aes(x = Regione, y = `Percentuale Sovraffollamento`, color = Cluster)) +
+  geom_jitter(width = 0.2, size = 3, alpha = 0.7) +
+  scale_color_manual(values = c("skyblue", "lightgreen", "orange", "lightcoral")) +  # Colori personalizzati
+  labs(title = "Cluster per Regione: Sovraffollamento",
+       x = "Regione",
+       y = "Percentuale Sovraffollamento") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+# 7. Heatmap: distribuzione regionale dei cluster
+# Conta delle osservazioni per cluster e regione
+heatmap_data <- df %>%
+  group_by(Regione, Cluster) %>%
+  summarise(Count = n()) %>%
+  ungroup()
+
+# Creazione della heatmap
+ggplot(heatmap_data, aes(x = Regione, y = Cluster, fill = Count)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient(low = "lightblue", high = "darkblue", name = "Numero di osservazioni") +
+  labs(title = "Distribuzione Regionale dei Cluster",
+       x = "Regione",
+       y = "Cluster") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+# 8. Bar Plot combinato: Sovraffollamento medio e stranieri medi per cluster
+# Calcolo delle medie per cluster
+cluster_means <- df %>%
+  group_by(Cluster) %>%
+  summarise(Sovraffollamento_Medio = mean(`Percentuale Sovraffollamento`, na.rm = TRUE),
+            Stranieri_Medio = mean(`Percentuale stranieri`, na.rm = TRUE)) %>%
+  pivot_longer(cols = c(Sovraffollamento_Medio, Stranieri_Medio), names_to = "Variabile", values_to = "Valore")
+
+# Bar plot combinato
+ggplot(cluster_means, aes(x = Cluster, y = Valore, fill = Variabile)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Sovraffollamento Medio e Stranieri Medi per Cluster",
+       x = "Cluster",
+       y = "Valore Medio",
+       fill = "Variabile") +
+  theme_minimal()
+
+```
+
+
+Hierarchical Clustering (La facciamo per un ulteriore check sul numero di cluster)
+```{r}
+
+# Selezioniamo le variabili
+df_hierarchical <- df %>% select(-Regione, -Provincia)
+
+# Definiamo linkage methods
+m <- c( "average", "single", "complete", "ward")
+names(m) <- c( "average", "single", "complete", "ward")
+
+# Function to compute agglomerative coefficient
+ac <- function(x) {
+  agnes(df_hierarchical, method = x)$ac
+}
+
+# Calcoliamo agglomerative coefficient per ogni clustering linkage method
+sapply(m, ac)
+
+# WARD SEEMS THE BEST IN AGGLOMERATIVE COEFFICIENT
+
+# Perform hierarchical clustering using Ward's minimum variance
+clust <- agnes(df_hierarchical, method = "ward")
+
+# Produce dendrogram
+pltree(clust, cex = 0.6, hang = -1, main = "Dendrogram")
+
+# NOW WE NEED TO SELECT THE NUMBER OF CLUSTER (SIMILAR TO THE K IN THE K MEANS)
+# WE USE THE GAP STATISTICS
+
+# Calculate gap statistic for each number of clusters (up to 5 clusters)
+gap_stat <- clusGap(df_hierarchical, FUN = hcut, nstart = 25, K.max = 5, B = 50)
+
+# Produce plot of clusters vs. gap statistic
+fviz_gap_stat(gap_stat)
+
+# THE HIGHEST GAP STASTISTICS IS IN K=3
+
+# Compute distance matrix
+d <- dist(df_hierarchical, method = "euclidean")
+final_clust <- hclust(d, method = "ward.D2" )
+groups <- cutree(final_clust, k=3)
+plot(final_clust)
+rect.hclust(final_clust, k = 3, border = "green")
+
+df_hierarchical$Regione <- data$`Regione Di Detenzione`
+df_hierarchical$Provincia <- data$`Sigla Provincia`
+
+final_data <- cbind(df_hierarchical, cluster = groups)
+aggregate(final_data, by=list(cluster=final_data$cluster), mean)
+
+ggplot(final_data) +
+  aes(x = `Percentuale Sovraffollamento`, y = `Percentuale stranieri`, colour = as.factor(cluster)) +
+  geom_point(shape = "circle", size = 1.5) +
+  theme_minimal()
+
+# Crea il grafico con ggplot2, colorando in base alla regione
+ggplot(final_data, aes(x = `Percentuale Sovraffollamento`, y = `Percentuale stranieri`, color = Regione)) +
+  geom_point(shape = "circle", size = 1.5) +
+  theme_minimal() +
+  labs(title = "Proiezione delle osservazioni colorata per regione",
+       x = "Percentuale Sovraffollamento", y = "Percentuale Stranieri") +
+  scale_color_manual(values = c(
+    "red", "blue", "green", "orange", "purple", "brown", "pink", "cyan", "yellow", 
+    "black", "darkred", "darkblue", "darkgreen", "gold", "violet", "chocolate", 
+    "turquoise", "gray", "darkorange", "navy"
+  )) +
+  theme(legend.title = element_blank())  # Rimuove il titolo della legenda
+
+```
+
+Interpretazioni
+```{r}
+# 1. Analisi generale della relazione Sovraffollamento-Stranieri
+#Grafico scatter Sovraffollamento vs. Percentuale di Stranieri:
+# Se c'è una tendenza visibile (ad esempio, un aumento della percentuale di stranieri associato a un sovraffollamento maggiore), puoi concludere che esiste una correlazione tra le due variabili.
+# Se i punti sono ben distribuiti senza un pattern chiaro, non ci sarebbe una relazione diretta evidente.
+# Interpretazione:
+# Una relazione positiva (più stranieri → più sovraffollamento) potrebbe suggerire che i detenuti stranieri siano una componente significativa nei contesti di maggiore sovraffollamento.
+# Cluster specifici con valori estremi (ad esempio, alto sovraffollamento ma pochi stranieri) possono rappresentare eccezioni o condizioni locali particolari.
+
+
+#2. Analisi delle Regioni
+#Grafico a barre della media di Sovraffollamento e Stranieri per Regione:
+#Le regioni con valori medi più alti (sia per sovraffollamento sia per stranieri) potrebbero richiedere interventi mirati.
+#Confrontando Nord, Centro e Sud, puoi verificare se ci sono differenze sistematiche tra le macro-aree geografiche.
+#Interpretazione:
+#Se trovi che il Sud ha valori medi più bassi di percentuale di stranieri ma alti tassi di sovraffollamento, potresti concludere che le condizioni locali (infrastrutture o politiche regionali) contribuiscono significativamente al sovraffollamento.
+#Il Nord potrebbe presentare un'elevata percentuale di stranieri, riflettendo flussi migratori maggiori.
+
+
+#3. Analisi dei Cluster
+#Grafico boxplot per Sovraffollamento e Stranieri nei Cluster:
+#I cluster mostrano come le province/regione siano suddivise in base a caratteristiche simili.
+#Analizzando i boxplot, puoi identificare differenze significative tra i gruppi:
+#Cluster con valori mediani bassi di sovraffollamento e alta dispersione indicano province/regione più diversificate.
+#Cluster con valori mediani alti di sovraffollamento suggeriscono che la pressione sulle strutture è sistemica.
+#Interpretazione:
+#Un cluster potrebbe rappresentare aree ben organizzate, con basso sovraffollamento e una gestione efficace dei detenuti.
+#Un altro cluster potrebbe includere aree critiche, con infrastrutture sotto pressione e problemi di gestione.
+
+#4. Silhouette e numero di cluster
+#L’analisi di silhouette e WSS per il K-Means ti ha permesso di scegliere il numero ottimale di cluster.
+#Se hai scelto 4 cluster, l'interpretazione dovrebbe essere basata su ciò che ogni cluster rappresenta:
+#Cluster 1: Province con basso sovraffollamento e pochi stranieri.
+#Cluster 2: Province con alto sovraffollamento e pochi stranieri.
+#Cluster 3: Province con alto sovraffollamento e molti stranieri.
+#Cluster 4: Province con basso sovraffollamento e molti stranieri.
+#Interpretazione:
+#Ogni cluster può guidare politiche specifiche:
+#Cluster 3 potrebbe richiedere interventi infrastrutturali immediati.
+#Cluster 1 potrebbe rappresentare un modello da replicare.
+
+
+```
