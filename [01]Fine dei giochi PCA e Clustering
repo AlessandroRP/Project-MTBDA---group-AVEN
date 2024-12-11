@@ -26,11 +26,12 @@ library(RColorBrewer)
 # ~
 
 # Caricamento del file Excel
-data <- read_excel("C:/Users/volan/OneDrive - uniroma1.it/Università/Management Tools for business data analyst/Progetto/Excel/DB Esecuzione penale esterna.xlsx", na= '-')
+data <- read_excel("C:/Users/User/OneDrive/Desktop/Università/MAGISTRALE/MTBDA/Progetto/[01]DB Esecuzione penale esterna.xlsx", na= '-')
 
 # Sostituzione valori da stringa a numerici
 data$"In carico all'inizio dell'anno da periodi precedenti" <- as.numeric(data$"In carico all'inizio dell'anno da periodi precedenti")
 data$"Presi in carico nell'anno" <- as.numeric(data$"Presi in carico nell'anno")
+data$"Totale soggetti in carico" <- as.numeric(data$"Totale soggetti in carico")
 data$"Affidamento in prova al servizio sociale" <- as.numeric(data$"Affidamento in prova al servizio sociale")
 data$"Detenzione domiciliare" <- as.numeric(data$"Detenzione domiciliare")
 data$Semilibertà <- as.numeric(data$Semilibertà)
@@ -173,14 +174,17 @@ correlation_matrix <- cor(data_scaled, pc_scores)
 
 # Visualizzare la matrice di correlazione
 print(correlation_matrix)
+# Osserva quali variabili hanno le correlazioni più forti (positive o negative) con ciascuna PCA
+# Nel nostro caso:
+# PCA1 --> Correlazione fortemente positiva con quasi tutte le variabili, in particolare "Totale soggetti in carico" (0.99), "In carico all'inizio dell'anno" (0.98), "Presi in carico nell'anno" (0.98). Questa componente rappresenta probabilmente il volume complessivo di gestione dei soggetti tramite misure alternative, ovvero un indicatore della dimensione totale del carico del sistema.
+# CONCETTO BASE PCA 1: può essere vista come una misura della dimensione operativa del sistema penale esterno, che riflette quanto il sistema sia carico di casi. È un indicatore del volume totale di gestione dei soggetti, ovvero quante persone entrano ed escono dal sistema e quante sono già in carico.
+# -Valori positivi: Indicano un alto volume di gestione, con un sistema penale esterno attivo e una forte pressione amministrativa. Le regioni con valori positivi gestiscono molti soggetti, riflettendo una maggiore densità di popolazione o una politica più orientata all'utilizzo delle misure alternative.
+# -Valori negativi: Indicano un basso volume di gestione, associato a regioni con minore pressione sul sistema penale. Questi valori possono essere legati a popolazioni meno numerose, a una capacità amministrativa inferiore o a un approccio meno sviluppato verso le misure alternative.
 
-# Concetto PCA 1: La PCA 1 rappresenta il volume complessivo di gestione dei soggetti tramite misure alternative, ovvero un indicatore della dimensione totale del carico del sistema penale esterno.
-# - Valori positivi: Indicano un alto volume di gestione, con un sistema penale esterno attivo e una forte pressione amministrativa. Le regioni con valori positivi gestiscono molti soggetti, riflettendo una maggiore densità di popolazione o una politica più orientata all'utilizzo delle misure alternative.
-# - Valori negativi: Indicano un basso volume di gestione, associato a regioni con minore pressione sul sistema penale. Questi valori possono essere legati a popolazioni meno numerose, a una capacità amministrativa inferiore o a un approccio meno sviluppato verso le misure alternative.
-
-# Concetto PCA 2: La PCA 2 può essere interpretata come un indicatore di politica penale:
-# - Valori positivi: Maggiore utilizzo di misure moderne come il lavoro di pubblica utilità.
-# - Valori negativi: Predominanza di soluzioni tradizionali come la detenzione domiciliare.
+# PCA2 --> Maggiore correlazione positiva con "Lavoro di pubblica utilità totale" (0.64) e Maggiore correlazione negativa con "Detenzione domiciliare" (-0.44). Sembra separare le misure alternative alla detenzione (es., lavoro di pubblica utilità) dalle forme più tradizionali come la detenzione domiciliare. Potrebbe rappresentare la preferenza per soluzioni riabilitative moderne rispetto a quelle tradizionali.
+# CONCETTO BASE PCA 2: La PCA 2 può essere interpretata come un indicatore di politica penale:
+# -Valori positivi: Maggiore utilizzo di misure moderne come il lavoro di pubblica utilità.
+# -Valori negativi: Predominanza di soluzioni tradizionali come la detenzione domiciliare.
 
 # Riorganizzare la matrice per la visualizzazione
 corr_melted <- melt(correlation_matrix)
@@ -231,7 +235,7 @@ km.res.2$cluster <- factor(km.res.2$cluster,
                            labels = c("MEDIO", "BASSO" , "ALTO"))
 
 # Definisci i colori personalizzati per i cluster
-cluster_colors <- c("BASSO" = "lightcoral", "MEDIO" = "#FFF5A1", "ALTO" = "lightgreen")
+cluster_colors <- c("BASSO" = "lightcoral", "MEDIO" = "orange", "ALTO" = "lightgreen")
 
 # Visualizza il grafico con i cluster rinominati e i colori personalizzati
 fviz_cluster(km.res.2, data = pca_kmeans, 
@@ -352,7 +356,7 @@ ggplot(final_data_kmeans, aes(x = Region, fill = as.factor(Cluster))) +
   geom_bar(position = "dodge") +
   labs(title = "Distribuzione dei Cluster per Regione",
        x = "Regione", y = "Conteggio", fill = "Cluster") + 
-  scale_fill_manual(values = c("BASSO" = "lightcoral", "MEDIO" = "#FFF5A1", "ALTO" = "lightgreen")) +
+  scale_fill_manual(values = c("BASSO" = "lightcoral", "MEDIO" = "orange", "ALTO" = "lightgreen")) +
   theme_minimal() +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1),  # Ruota le etichette sull'asse x
@@ -399,7 +403,7 @@ ggplot(final_data_kmeans, aes(x = `Volume Sistema Penale Esterno`, y = `Preferen
     y = "Preferenza Soluzioni Riabilitative Moderne", 
     color = "Cluster"
   ) +
-  scale_color_manual(values = c("BASSO" = "lightcoral", "MEDIO" = "#FFF5A1", "ALTO" = "lightgreen")) +
+  scale_color_manual(values = c("BASSO" = "lightcoral", "MEDIO" = "orange", "ALTO" = "lightgreen")) +
   theme(
     plot.title = element_text(hjust = 0.5, face = "bold")  # Titolo centrato e in grassetto
   )
@@ -415,7 +419,7 @@ ggplot(final_data_kmeans, aes(x = as.factor(Cluster), y = `Volume Sistema Penale
     x = "Cluster",
     y = "Volume Sistema Penale Esterno"
   ) +
-  scale_fill_manual(values = c("lightgreen", "lightcoral", "#FFF5A1")) +
+  scale_fill_manual(values = c("lightgreen", "lightcoral", "orange")) +
   scale_color_manual(values = c("darkgreen", "darkred", "goldenrod")) +  # Colori per i punti
   theme(
     plot.title = element_text(hjust = 0.5, face = "bold")  # Titolo centrato e in grassetto
@@ -435,7 +439,7 @@ ggplot(aggregate_data, aes(x = Region, y = Dimensione1, fill = as.factor(Cluster
     y = "Volume Sistema Penale Esterno",
     fill = "Cluster"
   ) +
-  scale_fill_manual(values = c("lightgreen", "lightcoral", "#FFF5A1")) +
+  scale_fill_manual(values = c("lightgreen", "lightcoral", "orange")) +
   theme(
     plot.title = element_text(hjust = 0.5, face = "bold"),  # Titolo centrato e in grassetto
     axis.text.x = element_text(angle = 45, hjust = 1)  # Ruota le etichette dell'asse X di 45°
@@ -455,7 +459,7 @@ ggplot(aggregate_year, aes(x = as.factor(Year), y = Dimensione1, fill = as.facto
     y = "Volume Sistema Penale Esterno",
     fill = "Cluster"
   ) +
-  scale_fill_manual(values = c("lightgreen", "lightcoral", "#FFF5A1")) +
+  scale_fill_manual(values = c("lightgreen", "lightcoral", "orange")) +
   theme(
     plot.title = element_text(hjust = 0.5, face = "bold")  # Titolo centrato e in grassetto
   )
@@ -524,7 +528,7 @@ ggplot(region_means, aes(x = Dim1_mean, y = Dim2_mean, color = Cluster, label = 
     y = "Preferenza Soluzioni Riabilitative Moderne",
     color = "Cluster"
   ) +
-  scale_color_manual(values = c("ALTO" = "lightgreen", "MEDIO" = "#FFF5A1", "BASSO" = "lightcoral")) +
+  scale_color_manual(values = c("BASSO" = "lightcoral", "MEDIO" = "orange", "ALTO" = "lightgreen")) +
   theme(
     plot.title = element_text(hjust = 0.5, face = "bold", size = 14),  # Titolo centrato e in grassetto
     legend.position = "top"  # Legenda posizionata sopra il grafico
