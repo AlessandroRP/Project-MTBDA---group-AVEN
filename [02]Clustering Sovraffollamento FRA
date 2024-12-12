@@ -22,6 +22,7 @@ library(dbscan)
 library(reshape2)
 library(plotly)
 library(GGally)
+library(randomcoloR)
 
 # Caricamento del file Excel
 data <- read_excel("[03]Detenuti italiani e stranieri al 31 dicembre 2023.xlsx")
