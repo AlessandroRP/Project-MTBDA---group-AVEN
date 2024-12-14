@@ -79,7 +79,18 @@ data_scaled <- scale(data_cleaned)
 pca_result <- PCA(data_scaled, graph = FALSE)
 
 # Grafico della varianza spiegata
-fviz_eig(pca_result, addlabels = TRUE)
+fviz_eig(pca_result, addlabels = TRUE) +
+  labs(
+    title = "Scree Plot of PCA",           # Cambia il titolo
+    x = "Principal Component",             # Cambia il nome dell'asse x
+    y = "Percentage of Explained Variances"                      # Cambia il nome dell'asse y
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),  # Centra il titolo
+    axis.title = element_text(size = 12)  # Modifica la dimensione del testo degli assi
+  ) +
+  scale_fill_manual(values = "steelblue")  # Imposta il colore delle barre come skyblue
 # Biplot per visualizzare le variabili
 fviz_pca_var(pca_result, col.var = "black")
 # Grafico del contributo delle variabili
@@ -146,9 +157,12 @@ fviz_pca_var(pca_result, axes = c(1, 3),
 plot_loadings <- function(loadings_sorted, pca_num) {
   loadings_df <- data.frame(Variable = names(loadings_sorted), Loading = loadings_sorted)
   ggplot(loadings_df, aes(x = reorder(Variable, Loading), y = Loading)) +
-    geom_bar(stat = "identity", fill = "skyblue") +
+    geom_bar(stat = "identity", fill = "steelblue") +
     coord_flip() +  # Per ruotare il grafico
-    labs(title = paste("Loadings per PCA", pca_num), x = "Variabili", y = "Loading")
+    labs(title = paste("Loadings on PC", pca_num), x = "Original Variables", y = "Loading")  +
+    theme(
+      plot.title = element_text(hjust = 0.5, size = 14, face = "bold")  # Centra il titolo
+    )
 }
 
 # Creazione dei grafici per PCA1, PCA2 e PCA3
@@ -192,10 +206,10 @@ corr_melted <- melt(correlation_matrix)
 # Creare la heatmap
 ggplot(corr_melted, aes(Var1, Var2, fill = value)) +
   geom_tile() +
-  scale_fill_gradient2(low = "blue", high = "red", mid = "white", midpoint = 0) +
-  labs(x = "Componenti Principali", y = "Variabili Originali", fill = "Correlazione") +
+  scale_fill_gradient2(low = "darkred", high = "green3", mid = "white", midpoint = 0) +
+  labs(title = "Correlation Matrix", x = "Original Variables", y = "Principal Component", fill = "Correlation") +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), plot.title = element_text(hjust = 0.5, size = 14, face = "bold"))
 
 # In base a tali osservazioni rinominiamo le PCA
 pca_data <- pca_data %>% rename(
@@ -213,7 +227,11 @@ K-Mean Clustering
 pca_kmeans <- pca_data %>% select(-Region, -Municipality, -Year, -Dim.3, -Dim.4, -Dim.5)
 
 # Verifica numero ottimale di cluster tramite silhouette
-fviz_nbclust(pca_kmeans, kmeans, method = "wss")
+fviz_nbclust(pca_kmeans, kmeans, method = "wss") +
+  labs(title = "Optimal Number of Clusters") +  # Aggiungi il titolo
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold")  # Centra il titolo
+  )
 
 km.res <- kmeans(pca_kmeans, 2)
 sil <- silhouette(km.res$cluster, dist(pca_kmeans))
@@ -232,10 +250,10 @@ km.res.2 <- kmeans(pca_kmeans, 3)
 # Modifica i nomi dei cluster
 km.res.2$cluster <- factor(km.res.2$cluster, 
                            levels = c(1, 2, 3), 
-                           labels = c("MEDIO", "BASSO" , "ALTO"))
+                           labels = c("AVERAGE", "LOW" , "HIGH"))
 
 # Definisci i colori personalizzati per i cluster
-cluster_colors <- c("BASSO" = "lightcoral", "MEDIO" = "orange", "ALTO" = "lightgreen")
+cluster_colors <- c("LOW" = "lightcoral", "AVERAGE" = "orange", "HIGH" = "lightgreen")
 
 # Visualizza il grafico con i cluster rinominati e i colori personalizzati
 fviz_cluster(km.res.2, data = pca_kmeans, 
@@ -243,7 +261,9 @@ fviz_cluster(km.res.2, data = pca_kmeans,
              label = TRUE, 
              palette = cluster_colors) +
   theme_minimal() +
-  labs(title = "K-Mean Clustering") +
+  labs(title = "K-Mean Clustering",
+       x = "Volume of External Penal System",
+       y = "Preference for Modern Rehabilitative Solutions") +
   theme(plot.title = element_text(hjust = 0.5, face = "bold"))
 
 
@@ -255,9 +275,9 @@ final_data_kmeans <- cbind(pca_kmeans, Cluster = km.res.2$cluster)
 # Modifica la colonna Cluster con nomi descrittivi
 final_data_kmeans <- final_data_kmeans %>%
   mutate(Cluster = case_when(
-    Cluster == 1 ~ "MEDIO",  # Se il Cluster è 1, diventa "MEDIO"
-    Cluster == 2 ~ "BASSO",  # Se il Cluster è 2, diventa "BASSO"
-    Cluster == 3 ~ "ALTO",   # Se il Cluster è 3, diventa "ALTO"
+    Cluster == 1 ~ "AVERAGE",  # Se il Cluster è 1, diventa "MEDIO"
+    Cluster == 2 ~ "LOW",  # Se il Cluster è 2, diventa "BASSO"
+    Cluster == 3 ~ "HIGH",   # Se il Cluster è 3, diventa "ALTO"
     TRUE ~ as.character(Cluster)  # Mantieni il valore originale se non è 1, 2, o 3
   ))
 
@@ -297,7 +317,11 @@ pltree(clust, cex = 0.6, hang = -1, main = "Dendrogram")
 gap_stat <- clusGap(pca_hierarchical, FUN = hcut, nstart = 25, K.max = 5, B = 50)
 
 # Produce plot of clusters vs. gap statistic
-fviz_gap_stat(gap_stat)
+fviz_gap_stat(gap_stat) +
+  labs(title = "Gap Statistic Plot") +  # Aggiungi il titolo
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold")  # Centra il titolo
+  )
 
 # THE HIGHEST GAP STASTISTICS IS IN K=3
 
@@ -321,7 +345,7 @@ aggregate(final_data_hierarchical, by=list(cluster=final_data_hierarchical$clust
 final_data_hierarchical$cluster <- factor(
   final_data_hierarchical$cluster,  # Colonna da convertire
   levels = c(2, 1, 3),              # Valori originali
-  labels = c("BASSO", "MEDIO", "ALTO")  # Valori desiderati
+  labels = c("LOW", "AVERAGE", "HIGH")  # Valori desiderati
 )
 
 # Grafico con colori personalizzati
@@ -333,10 +357,10 @@ ggplot(final_data_hierarchical) +
     fill = cluster
   ) +
   geom_point(shape = 21, size = 2, stroke = 0.5) +
-  scale_colour_manual(values = c("BASSO" = "red", "MEDIO" = "yellow", "ALTO" = "green")) +
-  scale_fill_manual(values = c("BASSO" = "lightcoral", "MEDIO" = "lightyellow", "ALTO" = "lightgreen")) +
+  scale_colour_manual(values = c("LOW" = "lightcoral", "AVERAGE" = "orange", "HIGH" = "lightgreen")) +
+  scale_fill_manual(values = c("LOW" = "lightcoral", "AVERAGE" = "orange", "HIGH" = "lightgreen")) +
   theme_minimal() +
-  labs(title = "Hierarchical Clustering", x = "PCA 1", y = "PCA 2") +
+  labs(title = "Hierarchical Clustering", x = "Volume of External Penal System", y = "Preference for Modern Rehabilitative Solutions") +
   theme(plot.title = element_text(hjust = 0.5, size = 14, face = "bold"))
 
 ```
@@ -454,12 +478,12 @@ ggplot(aggregate_year, aes(x = as.factor(Year), y = Dimensione1, fill = as.facto
   geom_bar(stat = "identity", position = "dodge") +
   theme_minimal() +
   labs(
-    title = "Media di Volume Sistema Penale Esterno per Anno e Cluster", 
-    x = "Anno", 
-    y = "Volume Sistema Penale Esterno",
+    title = "Bar Plot of Time Trend", 
+    x = "Year", 
+    y = "Volume of External Penal System",
     fill = "Cluster"
   ) +
-  scale_fill_manual(values = c("lightgreen", "lightcoral", "orange")) +
+  scale_fill_manual(values = c("orange", "lightgreen", "lightcoral")) +
   theme(
     plot.title = element_text(hjust = 0.5, face = "bold")  # Titolo centrato e in grassetto
   )
@@ -516,19 +540,19 @@ kmeans_regions <- kmeans(region_means[, c("Dim1_mean", "Dim2_mean")], centers = 
 # Aggiungi i cluster ai dati delle regioni
 region_means$Cluster <- as.factor(kmeans_regions$cluster)
 # Cambio nome Cluster
-region_means$Cluster <- factor(region_means$Cluster, levels = c(1, 2, 3), labels = c("ALTO", "BASSO", "MEDIO"))
+region_means$Cluster <- factor(region_means$Cluster, levels = c(1, 2, 3), labels = c("HIGH", "LOW", "AVERAGE"))
 # Creazione del grafico
 ggplot(region_means, aes(x = Dim1_mean, y = Dim2_mean, color = Cluster, label = Region)) +
   geom_point(size = 3, alpha = 0.8) +  # Ridotto il punto e aggiunta trasparenza
   geom_text_repel(size = 3, box.padding = 0.5, max.overlaps = 10) +  # Etichette dinamiche e spaziate
   theme_minimal() +
   labs(
-    title = "Cluster delle regioni nello spazio PCA",
-    x = "Volume Sistema Penale Esterno",
-    y = "Preferenza Soluzioni Riabilitative Moderne",
+    title = "Scatter Plot",
+    x = "Volume of External Penal System",
+    y = "Preference for Modern Rehabilitative Solutions",
     color = "Cluster"
   ) +
-  scale_color_manual(values = c("BASSO" = "lightcoral", "MEDIO" = "orange", "ALTO" = "lightgreen")) +
+  scale_color_manual(values = c("LOW" = "lightcoral", "AVERAGE" = "orange", "HIGH" = "lightgreen")) +
   theme(
     plot.title = element_text(hjust = 0.5, face = "bold", size = 14),  # Titolo centrato e in grassetto
     legend.position = "top"  # Legenda posizionata sopra il grafico
@@ -538,23 +562,23 @@ ggplot(region_means, aes(x = Dim1_mean, y = Dim2_mean, color = Cluster, label = 
 # 10. Grafico Cluster delle regioni nello spazio delle PCA (POV AREA GEOGRAFICA)
 # Aggiungi la macro-area geografica (Nord, Centro, Sud)
 region_means$MacroArea <- case_when(
-  region_means$Region %in% c("Lombardia", "Veneto", "Piemonte", "Liguria", "Emilia-Romagna", "Trentino-Alto Adige", "Friuli Venezia Giulia", "Valle d'Aosta") ~ "Nord",
-  region_means$Region %in% c("Toscana", "Marche", "Lazio", "Umbria", "Abruzzo", "Molise") ~ "Centro",
-  region_means$Region %in% c("Campania", "Puglia", "Calabria", "Sicilia", "Sardegna", "Basilicata") ~ "Sud"
+  region_means$Region %in% c("Lombardia", "Veneto", "Piemonte", "Liguria", "Emilia-Romagna", "Trentino-Alto Adige", "Friuli Venezia Giulia", "Valle d'Aosta") ~ "Northern",
+  region_means$Region %in% c("Toscana", "Marche", "Lazio", "Umbria", "Abruzzo", "Molise") ~ "Central",
+  region_means$Region %in% c("Campania", "Puglia", "Calabria", "Sicilia", "Sardegna", "Basilicata") ~ "Southern"
 )
 # Creazione del grafico statico
-ggplot(region_means, aes(x = Dim1_mean, y = Dim2_mean, color = MacroArea, shape = Cluster)) +
+ggplot(region_means, aes(x = Dim1_mean, y = Dim2_mean, color = Cluster, shape = MacroArea)) +
   geom_point(size = 4, alpha = 0.8) +  # Punti con trasparenza
   geom_text_repel(aes(label = Region), size = 3, box.padding = 0.5, max.overlaps = 10) +  # Etichette ben distanziate
   theme_minimal() +
   labs(
-    title = "Cluster regionali e macro-aree geografiche",
-    x = "PCA 1",
-    y = "PCA 2",
-    color = "Macro-Area",  # Titolo per la legenda dei colori
-    shape = "Cluster"      # Titolo per la legenda delle forme
+    title = "Regional Clusters and Territorial Macro Areas",
+    x = "Volume of External Penal System",
+    y = "Preference for Modern Rehabilitative Solutions",
+    color = "Cluster",  # Titolo per la legenda dei colori
+    shape = "Macro-Areas"      # Titolo per la legenda delle forme
   ) +
-  scale_color_manual(values = c("Nord" = "steelblue", "Centro" = "gold", "Sud" = "firebrick")) +  # Colori personalizzati per macro-aree
+  scale_color_manual(values = c("HIGH" = "lightgreen", "AVERAGE" = "orange", "LOW" = "lightcoral")) +  # Colori personalizzati per macro-aree
   theme(
     plot.title = element_text(hjust = 0.5, face = "bold", size = 14),  # Titolo centrato e in grassetto
     legend.position = "top",  # Posiziona la legenda sopra il grafico
@@ -575,8 +599,8 @@ interactive_data <- final_data_kmeans %>%
 region_colors <- colorRampPalette(brewer.pal(9, "Set1"))(length(unique(interactive_data$Region)))
 # Assegna simboli ai cluster
 interactive_data$symbol_cluster <- factor(interactive_data$Cluster, 
-                                           levels = c("BASSO", "MEDIO", "ALTO"),
-                                           labels = c("triangle-up", "square", "circle"))
+                                           levels = c("LOW", "AVERAGE", "HIGH"),
+                                           labels = c("LOW", "AVERAGE", "HIGH"))
 # Crea il grafico interattivo
 interactive_plot <- plot_ly(data = interactive_data, 
                             x = ~`Volume Sistema Penale Esterno`, 
@@ -592,16 +616,16 @@ interactive_plot <- plot_ly(data = interactive_data,
                             mode = 'markers', 
                             marker = list(size = 10)) %>%
   layout(title = list(
-           text = "Distribuzione dei comuni per Regione e Cluster (Anno 2023)",
+           text = "Distribution of Municipalities by Region and Cluster (Year 2023)",
            x = 0.5,  # Centra il titolo
            font = list(
              size = 16, 
              family = "Arial Black"  # Titolo in grassetto
            )),
-         xaxis = list(title = "Volume Sistema Penale Esterno"),
-         yaxis = list(title = "Preferenza Soluzioni Riabilitative Moderne"),
+         xaxis = list(title = "Volume of External Penal System"),
+         yaxis = list(title = "Preferences for Modern Rehabilitative Solutions"),
          legend = list(
-           title = list(text = "Colori per Regione e Simboli per Cluster"),
+           title = list(text = "Colours by Region and Shapes by Cluster"),
            itemsizing = "constant"
          ),
          showlegend = TRUE)
