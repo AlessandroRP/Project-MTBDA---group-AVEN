@@ -1,5 +1,3 @@
-#NB Questo è un file R Markdown
-
 ---
 title: "Time Series"
 output: html_document
@@ -45,22 +43,23 @@ DATA[, 1] <- as.Date(DATA[, 1], format = "%Y-%m")
 
 #Plot the data
 ggplot(DATA, aes(x = Data_Rilevazione)) +
-  geom_line(aes(y = Imputati, color = "Imputati"), size = 0.8) +
-  geom_line(aes(y = Condannati, color = "Condannati"), size = 0.8) +
-  geom_line(aes(y = Internati, color = "Internati"), size = 0.8) +
-  geom_line(aes(y = Totale, color = "Totale"), size = 1) +
-  theme_minimal() +
+  geom_line(aes(y = Imputati, color = "Accused"), size = 0.8) +
+  geom_line(aes(y = Condannati, color = "Convicted"), size = 0.8) +
+  geom_line(aes(y = Internati, color = "Interned"), size = 0.8) +
+  geom_line(aes(y = Totale, color = "Total"), size = 1) +
+  theme_minimal() + ggtitle("Line Chart of the Time Series") +
   scale_x_date(date_breaks = "4 years", date_labels = "%Y") +
   scale_y_continuous(breaks = seq(0, 70000, by = 10000), 
                      labels = function(x) paste0(x / 1000, "k")) +
-  scale_color_manual(values = c("Imputati" = "red", 
-                                "Condannati" = "blue", 
-                                "Internati" = "green", 
-                                "Totale" = "orange"),
-                     breaks = c("Totale", "Condannati", "Imputati", "Internati")) +
+  scale_color_manual(values = c("Accused" = "skyblue", 
+                                "Convicted" = "lightcoral", 
+                                "Interned" = "lightgreen", 
+                                "Total" = "orange"),
+                     breaks = c("Total", "Convicted", "Accused", "Interned")) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(color = "Category", x = "", y = "Numero di Persone") +
-  theme(legend.position = "bottom")
+  labs(color = "Category: ", x = "Year", y = "People Count") +
+  theme(legend.position = "bottom",
+        plot.title = element_text(hjust = 0.5, size = 14, face = "bold"))
 
 ```
 
@@ -71,17 +70,19 @@ ts_DATA=as.ts(DATA$Total, frequency = 2, start = c(1991,1))
 ggtsdisplay(ts_DATA)
 
 ggAcf(ts_DATA,lag.max = 70) +theme_bw()+ylab(label="Totale")+
-  labs(title="ACF")
+  labs(title="ACF") + 
+  theme(plot.title = element_text(hjust = 0.5, size = 14, face = "bold"))
 
 ggPacf(ts_DATA,lag.max = 70)+theme_bw()+ylab(label="Totale")+
-  labs(title="PACF")
+  labs(title="PACF") + 
+  theme(plot.title = element_text(hjust = 0.5, size = 14, face = "bold"))
 
 
 #AUTO ARIMA
 ARIMA_model <- auto.arima(ts_DATA,stepwise=FALSE,
                           approximation=FALSE,seasonal=F)
 
-ggAcf(ARIMA_model$residuals,lag.max = 60)+
+ggAcf(ARIMA_model$residuals,lag.max = 60) +
   ggtitle("ACF of ARIMA Model Residuals") +
   theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5, size = 14, 
@@ -105,31 +106,41 @@ DATA$ARIMA=fitted(ARIMA_model)
 #Without this line, the ARIMA values would not exist in DATA, and the ggplot call would fail since it tries to access DATA$ARIMA.
 
 ARIMA_plot<-ggplot(DATA,aes(x=Data_Rilevazione))+
-  geom_point(aes(y=Totale),alpha=0.6)+
-  geom_line(aes(y=Totale,group = 1),color="black",alpha=0.6)+
-  geom_point(aes(y=ARIMA),color="darkred")+
-  geom_line(aes(y=ARIMA,group = 1),color="darkred")+
+  geom_point(aes(y=Totale),alpha=0.5)+
+  geom_line(aes(y=Totale,group = 1),color="black",alpha=0.5)+
+  geom_point(aes(y=ARIMA),color="lightcoral")+
+  geom_line(aes(y=ARIMA,group = 1),color="lightcoral")+
   theme_minimal()+
-  xlab(label = "")+
-  ylab(label = "Numero di Persone")+
+  ggtitle("ARIMA vs. Original Time Series") +
+  xlab(label = "Year")+
+  ylab(label = "People Count")+
   scale_x_date(date_breaks = "4 years", date_labels = "%Y")+
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  scale_y_continuous(breaks = seq(0, 80000, by = 10000), 
+                     limits = c(30000, 71000), 
+                     labels = function(x) paste0(x / 1000, "k")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(hjust = 0.5, size = 14, 
+                                  face = "bold"))
 ARIMA_plot
 
 
 #MANUAL ARIMA
 ts_DATA=as.ts(DATA$Total, frequency = 2, start = c(1991,1))
-#ts_DATA <- diff(ts_DATA, differences = 2)
+ts_DATA <- diff(ts_DATA, differences = 1)
 
 ggtsdisplay(ts_DATA)
-ggAcf(ts_DATA,lag.max = 70)+theme_bw()+ylab(label="Totale")+
-  labs(title="Differenciated ACF")
+ggAcf(ts_DATA,lag.max = 70) +theme_bw()+ylab(label="Totale")+
+  labs(title="Differenciated ACF") + 
+  theme(plot.title = element_text(hjust = 0.5, size = 14, face = "bold"))
 ggPacf(ts_DATA,lag.max = 70)+theme_bw()+ylab(label="Totale")+
-  labs(title="Differenciated PACF")
+  labs(title="Differenciated PACF") + 
+  theme(plot.title = element_text(hjust = 0.5, size = 14, face = "bold"))
 
-ARIMA_model_2 <- auto.arima(ts_DATA, d=2, start.p=1, max.p=1, 
-                            start.q=7, max.q=7, stepwise=FALSE, 
-                            approximation=FALSE, seasonal=F)
+# ARIMA_model_2 <- auto.arima(ts_DATA, d=1, start.p=0, max.p=0, 
+#                             start.q=15, max.q=15, stepwise=FALSE, 
+#                             approximation=FALSE, seasonal=F)
+
+ARIMA_model_2 <- Arima(ts_DATA, order = c(0,1,15))
 
 summary(ARIMA_model_2)
 Box.test(ARIMA_model_2$residuals, lag = 60, type = "Lj")
@@ -145,18 +156,18 @@ ggPacf(ARIMA_model_2$residuals,lag.max = 60)+
   theme(plot.title = element_text(hjust = 0.5, size = 14, 
                                   face = "bold"))
 
-DATA$ARIMA=fitted(ARIMA_model_2)
-ARIMA_plot<-ggplot(DATA,aes(x=Data_Rilevazione))+
-  geom_point(aes(y=Totale),alpha=0.6)+
-  geom_line(aes(y=Totale,group = 1),color="black",alpha=0.6)+
-  geom_point(aes(y=ARIMA),color="darkred")+
-  geom_line(aes(y=ARIMA,group = 1),color="darkred")+
-  theme_minimal()+
-  xlab(label = "")+
-  ylab(label = "Numero di Persone")+
-  scale_x_date(date_breaks = "4 years", date_labels = "%Y")+
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-ARIMA_plot
+# DATA$ARIMA=fitted(ARIMA_model_2)
+# ARIMA_plot<-ggplot(DATA,aes(x=Data_Rilevazione))+
+#   geom_point(aes(y=Totale),alpha=0.6)+
+#   geom_line(aes(y=Totale,group = 1),color="black",alpha=0.6)+
+#   geom_point(aes(y=ARIMA),color="darkred")+
+#   geom_line(aes(y=ARIMA,group = 1),color="darkred")+
+#   theme_minimal()+
+#   xlab(label = "Anno")+
+#   ylab(label = "Numero di Persone")+
+#   scale_x_date(date_breaks = "4 years", date_labels = "%Y")+
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+# ARIMA_plot
 
 ```
 
@@ -167,14 +178,16 @@ ARIMA_forecast <- forecast(ARIMA_model, h = 15)
 autoplot(ARIMA_forecast) + 
   theme_minimal() + 
   ggtitle("ARIMA Model Forecast") + 
-  xlab("") + 
-  ylab("Total") +
+  xlab("Year") + 
+  ylab("People Count") +
   scale_x_continuous(breaks = scales::pretty_breaks(n = 12), 
                      labels = function(x) as.integer(1991 + (x-1)/2)) +
   scale_y_continuous(breaks = seq(0, 100000, by = 25000), 
                      limits = c(25000, 100000), 
                      labels = function(x) paste0(x / 1000, "k")) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), 
+        plot.title = element_text(hjust = 0.5, size = 14, 
+                                  face = "bold"))
 
 value <- DATA[nrow(DATA), ncol(DATA)]
 print(value)
@@ -286,12 +299,74 @@ ggplot(DATA_3, aes(x = reorder(Regione, `Indice di Saturazione`),
            alpha = 0.8) +
   coord_flip() + 
   theme_minimal() +
-  scale_y_continuous(labels = scales::percent) + 
-  labs(title = "Tasso di Saturazione per Regione",
-    x = "Regione",
-    y = "Tasso di Saturazione (%)")
+  theme(plot.title = element_text(hjust = 0.5, size = 14, face = "bold")) +
+  scale_y_continuous(breaks = seq(0, 1.50, by = 0.25), 
+                     limits = c(0, 1.55), 
+                     labels = scales::percent) + 
+  labs(title = "Saturation Rate by Region",
+    x = "",
+    y = "Percentage Rate (%)")
 
 #FARE UNA MAPPA GEOGRAFICA!!!!!
+library(sf)
+library(leaflet)
+
+shapefile_path <- "C:\\Users\\Aless\\Desktop\\Magistrale\\I° ANNO\\Management Tools for Business Data Analyst\\[00]PROJECT\\PLOTS\\Limiti01012024_g\\Reg01012024_g\\Reg01012024_g_WGS84.shp"
+
+italia_sf <- st_read(shapefile_path)
+head(italia_sf)
+
+DATA_4 <- DATA_3 %>% select(Regione, `Indice di Saturazione`)
+
+mappa_nomi <- c(
+  "Piemonte" = "PIEMONTE",
+  "Valle d'Aosta" = "VALLE D'AOSTA",
+  "Lombardia" = "LOMBARDIA",
+  "Trentino-Alto Adige" = "TRENTINO ALTO ADIGE",
+  "Veneto" = "VENETO",
+  "Friuli-Venezia Giulia" = "FRIULI VENEZIA GIULIA",
+  "Liguria" = "LIGURIA",
+  "Emilia-Romagna" = "EMILIA ROMAGNA",
+  "Toscana" = "TOSCANA",
+  "Umbria" = "UMBRIA",
+  "Marche" = "MARCHE",
+  "Lazio" = "LAZIO",
+  "Abruzzo" = "ABRUZZO",
+  "Molise" = "MOLISE",
+  "Campania" = "CAMPANIA",
+  "Puglia" = "PUGLIA",
+  "Basilicata" = "BASILICATA",
+  "Calabria" = "CALABRIA",
+  "Sicilia" = "SICILIA",
+  "Sardegna" = "SARDEGNA")
+italia_sf <- italia_sf %>%
+  mutate(Regione_formattata = mappa_nomi[DEN_REG])
+italia_sf <- italia_sf %>% select(-DEN_REG)
+italia_sf <- inner_join(italia_sf, DATA_4, by = c("Regione_formattata" = "Regione"))
+head(italia_sf)
+
+library(ggplot2)
+library(sf)
+#library(plotly)
+ggplot(data = italia_sf) +
+  geom_sf(aes(fill = `Indice di Saturazione`), color = "black", 
+          size = 0.2) +
+  scale_fill_gradientn(
+    colors = c("green3", "yellow2", "orange", "red", "darkred"),
+    values = scales::rescale(c(0.7, 0.9, 1.1, 1.3, 1.6)),
+    limits = c(0.7, 1.6),                                
+    name = "Saturation Index") +
+  theme_minimal() +
+  labs(
+    title = "Map of Italian Regions by Saturation Rate",
+    subtitle = "",
+    caption = "") +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5, size = 12),
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 8),
+    legend.position = "bottom")
 
 ```
 
