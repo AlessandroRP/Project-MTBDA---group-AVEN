@@ -2,7 +2,6 @@ This was a group project for the course: Management Tools for Business Data Anal
 
 The datasets used in this analysis have been derived from data provided by the Italian Ministry of Justice, with some obtained more directly and others processed through more complex methodologies. All links to both our datasets and the original data sources are documented in our report.
 
-This research examines the effectiveness of alternative measures to detention, such as house arrest, probation, and community service, in reducing prison overcrowding in Italy and improving prison management. It also analyses regional performance, considering factors like overcrowding levels, impacts on critical events, foreign detainee incidence and the effectiveness of these policies. 
-Advanced statistical tools, including ARIMA and Clustering Analysis, are applied to classify regions and predict future trends.
+This research examines the effectiveness of alternative detention measures—house arrest, probation, and community service—in reducing prison overcrowding and improving prison management in Italy. It also analyses regional performance, focusing on overcrowding levels, critical events, foreign detainee rates and policy effectiveness. Advanced statistical tools, including ARIMA and Clustering Analysis, are used to classify regions and predict future trends.
  
 Google Doc link of the report: https://docs.google.com/document/d/16Q7h5q8sVuGih5ipBmVnn_HCewpVzstLcs9OFmUC5LY/edit?tab=t.0
