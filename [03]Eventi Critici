@@ -22,6 +22,7 @@ library(tidyverse)
 
 #PLOT
 library(ggplot2)
+library(tidyr)
 
 #ARIMA
 library(forecast)
@@ -44,21 +45,21 @@ colnames(DATA)[1] <- "Data_Rilevazione"
 DATA_2 <- DATA_2[c(1,2,4,7)]
 colnames(DATA_2)[2] <- "Detenuti"
 colnames(DATA_2)[3] <- "Suicidi"
-colnames(DATA_2)[4] <- "Decessi"
+colnames(DATA_2)[4] <- "Morti_naturali"
 
 #Exploring the DB DATA_2
 ggplot(DATA_2, aes(x = Anno)) +
   geom_line(aes(y = Detenuti, color = "Inmates"), size = 0.8) +
   geom_line(aes(y = Suicidi, color = "Suicides"), size = 0.8) +
-  geom_line(aes(y = Decessi, color = "Deaths"), size = 0.8, lty = 2) +
+  geom_line(aes(y = Morti_naturali, color = "Natural Deaths"), size = 0.8, lty = 2) +
   theme_minimal() +
   scale_x_continuous(breaks = seq(1992, 2023, by = 5)) +
   scale_y_continuous(breaks = seq(0, 90000, by = 30000),
                      labels = function(x) paste0(x / 1000, "k")) +
   scale_color_manual(values = c("Inmates" = "lightcoral", 
                                 "Suicides" = "steelblue", 
-                                "Deaths" = "orange"),
-                     breaks = c("Inmates", "Deaths", "Suicides")) +
+                                "Natural Deaths" = "orange"),
+                     breaks = c("Inmates", "Natural Deaths", "Suicides")) +
   ggtitle("Time Series of Inmates and Critical Events") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         plot.title = element_text(hjust = 0.5, size = 14, face = "bold")) +
@@ -67,14 +68,14 @@ ggplot(DATA_2, aes(x = Anno)) +
 
 ggplot(DATA_2, aes(x = Anno)) +
   geom_line(aes(y = Suicidi, color = "Suicides"), size = 0.8) +
-  geom_line(aes(y = Decessi, color = "Deaths"), size = 0.8) +
+  geom_line(aes(y = Morti_naturali, color = "Natural Deaths"), size = 0.8) +
   theme_minimal() +
   scale_x_continuous(breaks = seq(1992, 2023, by = 5)) +
   scale_y_continuous(breaks = seq(0, 150, by = 25), 
                      limits = c(25,125)) + 
-  scale_color_manual(values = c("Deaths" = "lightcoral", 
+  scale_color_manual(values = c("Natural Deaths" = "lightcoral", 
                                 "Suicides" = "skyblue"),
-                     breaks = c("Deaths", "Suicides")) +
+                     breaks = c("Natural Deaths", "Suicides")) +
   ggtitle("Time Series Focused on Critical Events") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1), 
         plot.title = element_text(hjust = 0.5, size = 14, face = "bold")) +
@@ -122,9 +123,79 @@ ggplot(Merged_Data, aes(x = Anno)) +
   labs(color = "Category: ", x = "Year", y = "People Count") +
   theme(legend.position = "bottom")
 
+Merged_Data$Decessi_Totali = Merged_Data$Morti_naturali + Merged_Data$Suicidi
+Merged_Data$Tasso_Suicidi = Merged_Data$Suicidi/Merged_Data$Decessi_Totali
+
+#PLOT 1.1
+ggplot(Merged_Data, aes(x = Anno)) + 
+  geom_line(aes(y = Decessi_Totali, color = "Total Deaths"), size = 0.8) +
+  geom_line(aes(y = Suicidi, color = "Suicides"), size = 0.8) +
+  geom_line(aes(y = Morti_naturali, color = "Natural Deaths"), size = 0.8) +
+  theme_minimal() +
+  scale_x_continuous(breaks = seq(1992, 2023, by = 5)) +
+  scale_y_continuous(breaks = seq(0, 200, by = 50), 
+                     limits = c(0,200)) + 
+  scale_color_manual(values = c("Total Deaths" = "lightcoral", 
+                                "Natural Deaths" = "skyblue",
+                                "Suicides" = "orange"),
+                     breaks = c("Total Deaths", "Natural Deaths", "Suicides")) +
+  ggtitle("Time Series Focused on Critical Events") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), 
+        plot.title = element_text(hjust = 0.5, size = 14, face = "bold")) +
+  labs(color = "Category: ", x = "Year", y = "People Count") +
+  theme(legend.position = "bottom")
+
+#PLOT 1.2
+#Reshape the data
+Merged_Data_long <- Merged_Data %>%
+  pivot_longer(cols = c(Suicidi, Morti_naturali, Decessi_Totali), 
+               names_to = "Category", 
+               values_to = "Count")
+
+# Stacked Bar Chart of Death Categories by Year
+ggplot(Merged_Data_long, aes(x = Anno, y = Count, fill = Category)) +
+  geom_bar(stat = "identity", position = "stack") +
+  scale_fill_manual(values = c("Decessi_Totali" = "lightcoral", 
+                               "Morti_naturali" = "skyblue", 
+                               "Suicidi" = "orange"),
+                    labels = c("Total Deaths", "Natural Deaths", "Suicides")) +
+  scale_x_continuous(breaks = seq(1992, 2023, by = 1)) +
+  scale_y_continuous(breaks = seq(0, 400, by = 100), limits = c(0,400)) +
+  ggtitle("Death Categories by Year") +
+  theme_minimal() +
+  labs(fill = "Category: ", x = "Year", y = "People Count") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1), 
+        plot.title = element_text(hjust = 0.5, size = 14, face = "bold"), 
+        legend.position = "bottom")
+
+#MAX ANALYSIS
+max_TotDeath_row <- Merged_Data[which.max(Merged_Data$Decessi_Totali), ]
+max_NatDeath_row <- Merged_Data[which.max(Merged_Data$Morti_naturali), ]
+max_suicide_row <- Merged_Data[which.max(Merged_Data$Suicidi), ]
+max_srate_row <- Merged_Data[which.max(Merged_Data$Tasso_Suicidi), ]
+print(max_TotDeath_row)
+print(max_NatDeath_row)
+print(max_suicide_row)
+print(max_srate_row)
+
+# Combine the rows into a single table
+summary_table <- data.frame(
+  Category = c("Total Deaths", "Natural Deaths", "Suicides", "Suicide Rate"),
+  Year = c(max_TotDeath_row$Anno, max_NatDeath_row$Anno, max_suicide_row$Anno, max_srate_row$Anno),
+  Count = c(max_TotDeath_row$Decessi_Totali, max_NatDeath_row$Morti_naturali, max_suicide_row$Suicidi, max_srate_row$Tasso_Suicidi))
+
+colnames(summary_table)[3] <- "Max_value"
+summary_table$Max_value <- as.numeric(summary_table$Max_value)
+summary_table$Max_value <- ifelse(summary_table$Category == "Suicide Rate",
+                                  round(summary_table$Max_value, 2),
+                                  as.integer(summary_table$Max_value))
+
+print(summary_table)
+
 ```
 
 ```{r VISUALIZATIONS}
+#PLOT 1
 correlation <- cor(Merged_Data$Detenuti, Merged_Data$Flusso, 
                    method = "pearson")
 print(correlation)
@@ -146,7 +217,8 @@ ggplot(Merged_Data) +
   theme(plot.title = element_text(hjust = 0.5, size = 14, face = "bold")) + 
   labs(x = "Flow", y = "Inmates")
 
-correlation <- cor(Merged_Data$Suicidi, Merged_Data$Decessi, 
+#PLOT 2
+correlation <- cor(Merged_Data$Suicidi, Merged_Data$Morti_naturali, 
                    method = "pearson")
 print(correlation)
 #r = 0.49, il che implica una moderata correlazione positiva.
@@ -155,36 +227,19 @@ print(correlation)
 ggplot(Merged_Data) +
   aes(
     x = Suicidi,
-    y = Decessi) +
+    y = Morti_naturali) +
   geom_point(shape = "circle", size = 1.5) +
   geom_smooth(method = "lm", color = "lightcoral") + 
   scale_color_hue(direction = 1) +
   scale_x_continuous(limits = c(35, NA)) + 
   scale_y_continuous(limits = c(45, NA)) + 
   theme_minimal() +
-  ggtitle("Correlation Between Suicides and Deaths") + 
+  ggtitle("Correlation Between Suicides and Natural Deaths") + 
   theme(plot.title = element_text(hjust = 0.5, size = 14, face = "bold")) + 
-  labs(x = "Suicides", y = "Deaths")
+  labs(x = "Suicides", y = "Natural Deaths")
 
-# Merged_Data_with_origin <- rbind(Merged_Data, 
-#                                  data.frame(Anno = "", Flusso = "", 
-#                                             Detenuti = "", Suicidi = 0, 
-#                                             Decessi = 0))
-# 
-# ggplot(Merged_Data_with_origin) +
-#   aes(
-#     x = Suicidi,
-#     y = Decessi
-#   ) +
-#   geom_point(shape = "circle", size = 1.5) +
-#   geom_smooth(method = "lm", se = TRUE, color = "blue") + 
-#   scale_color_hue(direction = 1) +
-#   scale_x_continuous(limits = c(0, NA)) + 
-#   scale_y_continuous(limits = c(0, NA)) + 
-#   theme_minimal()
-
-
-correlation <- cor(Merged_Data$Decessi, Merged_Data$Detenuti, 
+#PLOT 3
+correlation <- cor(Merged_Data$Morti_naturali, Merged_Data$Detenuti, 
                    method = "pearson")
 print(correlation)
 #r = 0.46, il che implica una moderata correlazione positiva.
@@ -194,7 +249,7 @@ print(correlation)
 ggplot(Merged_Data) +
   aes(
     x = Detenuti,
-    y = Decessi
+    y = Morti_naturali
   ) +
   geom_point(shape = "circle", size = 1.5) +
   geom_smooth(method = "lm", color = "lightcoral") + 
@@ -202,10 +257,32 @@ ggplot(Merged_Data) +
   scale_x_continuous(breaks = seq(30000, 80000, by = 10000),
                      labels = function(x) paste0(x / 1000, "k")) + 
   theme_minimal() + 
-  ggtitle("Correlation Between Inmate population and Deaths") + 
+  ggtitle("Correlation Between Inmate population and Natural Deaths") + 
   theme(plot.title = element_text(hjust = 0.5, size = 14, face = "bold")) + 
-  labs(x = "People Count", y = "Deaths")
+  labs(x = "People Count", y = "Natural Deaths")
 
+#PLOT 4
+correlation <- cor(Merged_Data$Decessi_Totali, Merged_Data$Detenuti, 
+                   method = "pearson")
+print(correlation)
+#r = 0.43, il che implica una moderata correlazione positiva.
+# In definitiva, la correlazione moderata suggerisce una relazione potenziale, ma non abbastanza forte da indicare una connessione diretta e esclusiva.
+# Per trarre conclusioni più solide bisognerebbe Considerare altre variabili (ad esempio, tasso di criminalità, spesa sanitaria, politiche sociali) che potrebbero spiegare meglio la relazione.
+
+ggplot(Merged_Data) +
+  aes(
+    x = Detenuti,
+    y = Decessi_Totali
+  ) +
+  geom_point(shape = "circle", size = 1.5) +
+  geom_smooth(method = "lm", color = "lightcoral") + 
+  scale_color_hue(direction = 1) + 
+  scale_x_continuous(breaks = seq(30000, 80000, by = 10000),
+                     labels = function(x) paste0(x / 1000, "k")) + 
+  theme_minimal() + 
+  ggtitle("Correlation Between Inmate population and Total Deaths") + 
+  theme(plot.title = element_text(hjust = 0.5, size = 14, face = "bold")) + 
+  labs(x = "People Count", y = "Total Deaths")
 
 ```
 
